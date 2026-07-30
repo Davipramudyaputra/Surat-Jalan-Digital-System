@@ -44,7 +44,7 @@ export default function DeliveryNotesPage() {
               type="search"
             />
             <p className="field-help" id="search-help">
-              Pencarian belum tersedia pada fase fondasi.
+              Pencarian dan daftar surat jalan tersedia pada Phase 3.
             </p>
           </div>
 
@@ -73,11 +73,11 @@ export default function DeliveryNotesPage() {
         <p className="empty-state-kicker">Belum ada data</p>
         <h2 id="empty-state-title">Surat jalan akan tampil di sini</h2>
         <p>
-          Setelah fitur import tersedia, data dari file Excel akan tersusun
-          otomatis berdasarkan perusahaan, nomor PO, dan cabang.
+          Import file Excel terlebih dahulu. Daftar dan pencarian surat jalan
+          akan tersedia pada Phase 3.
         </p>
         <Link className="secondary-button" href="/upload">
-          Lihat persiapan upload
+          Upload file Excel
         </Link>
       </section>
     </div>

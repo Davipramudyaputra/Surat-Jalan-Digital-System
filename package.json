@@ -12,9 +12,15 @@
     "start": "next start",
     "lint": "eslint .",
     "typecheck": "tsc --noEmit",
+    "test": "vitest run",
+    "test:watch": "vitest",
+    "test:sample": "vitest run src/features/imports/__tests__/sample-acceptance.test.ts",
+    "verify:sample": "RUN_DATABASE_TESTS=1 vitest run src/features/imports/__tests__/database-verification.database.test.ts",
     "postinstall": "prisma generate",
+    "prisma:format": "prisma format",
     "prisma:generate": "prisma generate",
-    "prisma:validate": "prisma validate"
+    "prisma:validate": "prisma validate",
+    "prisma:migrate": "prisma migrate dev"
   },
   "dependencies": {
     "@prisma/adapter-pg": "^7.9.1",
@@ -24,6 +30,7 @@
     "react": "^19.2.8",
     "react-dom": "^19.2.8",
     "server-only": "^0.0.1",
+    "xlsx": "https://cdn.sheetjs.com/xlsx-0.20.3/xlsx-0.20.3.tgz",
     "zod": "^4.4.3"
   },
   "devDependencies": {
@@ -36,7 +43,8 @@
     "eslint-config-next": "^16.2.12",
     "prisma": "^7.9.1",
     "tailwindcss": "^4.3.3",
-    "typescript": "^5.9.3"
+    "typescript": "^5.9.3",
+    "vitest": "^4.1.10"
   },
   "overrides": {
     "next": {

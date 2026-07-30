@@ -6,3 +6,109 @@ generator client {
 datasource db {
   provider = "postgresql"
 }
+
+enum ImportStatus {
+  PROCESSING
+  IMPORTED
+  DUPLICATE
+  FAILED
+}
+
+enum PrintStatus {
+  NOT_PRINTED
+  PRINTED
+}
+
+model Upload {
+  id                  String       @id @default(cuid())
+  originalFileName    String
+  fileHash            String
+  fileSize            Int
+  mimeType            String?
+  importStatus        ImportStatus @default(PROCESSING)
+  detectedSheetName   String?
+  detectedHeaderRow   Int?
+  detectionConfidence Int?
+  purchaseOrderCount  Int          @default(0)
+  deliveryNoteCount   Int          @default(0)
+  itemCount           Int          @default(0)
+  warnings            Json?
+  errors              Json?
+  createdAt           DateTime     @default(now())
+  updatedAt           DateTime     @updatedAt
+
+  sourcedPurchaseOrders PurchaseOrder[] @relation("LastSourceUpload")
+
+  @@index([fileHash])
+  @@index([importStatus])
+}
+
+model PurchaseOrder {
+  id                 String   @id @default(cuid())
+  companyCode        String
+  companyName        String
+  poNumber           String
+  normalizedPoNumber String
+  period             String?
+  lastSourceUploadId String?
+  createdAt          DateTime @default(now())
+  updatedAt          DateTime @updatedAt
+
+  lastSourceUpload Upload?        @relation("LastSourceUpload", fields: [lastSourceUploadId], references: [id], onDelete: SetNull)
+  deliveryNotes    DeliveryNote[]
+
+  @@unique([companyCode, normalizedPoNumber])
+  @@index([companyCode])
+  @@index([normalizedPoNumber])
+  @@index([lastSourceUploadId])
+}
+
+model DeliveryNote {
+  id                   String      @id @default(cuid())
+  purchaseOrderId      String
+  uniqueCode           String      @unique
+  documentNumber       String?
+  documentDate         DateTime?
+  recipientCompanyName String
+  originalBranchName   String
+  branchName           String
+  normalizedBranchName String
+  vehicleName          String?
+  vehicleNumber        String?
+  additionalPoNumber   String?
+  recipientName        String?
+  printStatus          PrintStatus @default(NOT_PRINTED)
+  firstPrintedAt       DateTime?
+  lastPrintedAt        DateTime?
+  printCount           Int         @default(0)
+  createdAt            DateTime    @default(now())
+  updatedAt            DateTime    @updatedAt
+
+  purchaseOrder PurchaseOrder      @relation(fields: [purchaseOrderId], references: [id], onDelete: Restrict)
+  items         DeliveryNoteItem[]
+
+  @@unique([purchaseOrderId, normalizedBranchName])
+  @@index([normalizedBranchName])
+  @@index([printStatus])
+}
+
+model DeliveryNoteItem {
+  id                    String   @id @default(cuid())
+  deliveryNoteId        String
+  originalProductName   String
+  displayProductName    String
+  normalizedProductName String
+  sourceQuantity        Decimal  @db.Decimal(20, 3)
+  quantity              Decimal  @db.Decimal(20, 3)
+  unit                  String?
+  description           String?
+  sortOrder             Int
+  isManuallyEdited      Boolean  @default(false)
+  createdAt             DateTime @default(now())
+  updatedAt             DateTime @updatedAt
+
+  deliveryNote DeliveryNote @relation(fields: [deliveryNoteId], references: [id], onDelete: Cascade)
+
+  @@unique([deliveryNoteId, normalizedProductName])
+  @@index([deliveryNoteId])
+}

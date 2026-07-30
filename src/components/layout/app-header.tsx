@@ -5,9 +5,9 @@ export function AppHeader() {
         <p className="brand-kicker">Sistem Surat Jalan</p>
         <p className="brand-name">CV. Pramudya Putra</p>
       </div>
-      <div className="phase-badge" aria-label="Status pengembangan Phase 1">
+      <div className="phase-badge" aria-label="Status pengembangan Phase 2">
         <span className="phase-dot" aria-hidden="true" />
-        Fondasi aplikasi
+        Import Excel
       </div>
     </header>
   );

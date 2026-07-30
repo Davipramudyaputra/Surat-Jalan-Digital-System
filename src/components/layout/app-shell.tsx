@@ -15,9 +15,10 @@ export function AppShell({ children }: AppShellProps) {
         <aside className="app-sidebar">
           <AppNavigation />
           <div className="sidebar-note">
-            <p className="sidebar-note-label">Phase 1</p>
+            <p className="sidebar-note-label">Phase 2</p>
             <p>
-              Fondasi aplikasi dan koneksi database sedang dipersiapkan.
+              Import Excel adaptif aktif. Daftar surat jalan dibangun pada fase
+              berikutnya.
             </p>
           </div>
         </aside>
