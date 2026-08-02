@@ -6,6 +6,7 @@ import type {
   ImportIssue,
   ParsedDeliveryNote,
   ParsedImport,
+  ImportResultStatus,
 } from "@/features/imports/types/import-types";
 import { prisma } from "@/lib/prisma";
 
@@ -13,6 +14,7 @@ type ImportPurchaseOrderInput = {
   fileHash: string;
   parsed: ParsedImport;
   uploadId: string;
+  importStatus: ImportResultStatus;
 };
 
 type ImportPurchaseOrderResult = {
@@ -21,6 +23,14 @@ type ImportPurchaseOrderResult = {
   items: number;
   purchaseOrders: number;
   warnings: ImportIssue[];
+  databaseChanges: {
+    purchaseOrdersCreated: number;
+    purchaseOrdersUpdated: number;
+    deliveryNotesCreated: number;
+    deliveryNotesUpdated: number;
+    itemsCreated: number;
+    itemsUpdated: number;
+  };
 };
 
 function toJsonValue(value: unknown): Prisma.InputJsonValue {
@@ -35,19 +45,26 @@ function hasItemChanges(
     quantity: Prisma.Decimal;
     sortOrder: number;
     sourceQuantity: Prisma.Decimal;
+    isManuallyEdited: boolean;
   }>,
   parsedDeliveryNote: ParsedDeliveryNote,
 ): boolean {
-  if (existingItems.length !== parsedDeliveryNote.items.length) {
-    return true;
-  }
-
   const existingByName = new Map(
-    existingItems.map((item) => [item.normalizedProductName, item]),
+    existingItems
+      .filter((item) => !item.normalizedProductName.includes("#manual-"))
+      .map((item) => [item.normalizedProductName, item]),
   );
 
-  return parsedDeliveryNote.items.some((item) => {
+  const importedNames = new Set(
+    parsedDeliveryNote.items.map((item) => item.normalizedProductName),
+  );
+
+  const importedOutputChanged = parsedDeliveryNote.items.some((item) => {
     const existing = existingByName.get(item.normalizedProductName);
+
+    if (existing?.isManuallyEdited) {
+      return false;
+    }
 
     return (
       !existing ||
@@ -58,6 +75,13 @@ function hasItemChanges(
       existing.sortOrder !== item.sortOrder
     );
   });
+
+  const removedOutputItem = [...existingByName.values()].some(
+    (item) =>
+      !item.isManuallyEdited && !importedNames.has(item.normalizedProductName),
+  );
+
+  return importedOutputChanged || removedOutputItem;
 }
 
 export async function importPurchaseOrder(
@@ -65,46 +89,8 @@ export async function importPurchaseOrder(
 ): Promise<ImportPurchaseOrderResult> {
   return prisma.$transaction(
     async (transaction) => {
-      const previousUpload = await transaction.upload.findFirst({
-        where: {
-          fileHash: input.fileHash,
-          id: { not: input.uploadId },
-          importStatus: "IMPORTED",
-        },
-        orderBy: { createdAt: "asc" },
-      });
-
-      if (previousUpload) {
-        await transaction.upload.update({
-          where: { id: input.uploadId },
-          data: {
-            importStatus: "DUPLICATE",
-            purchaseOrderCount: previousUpload.purchaseOrderCount,
-            deliveryNoteCount: previousUpload.deliveryNoteCount,
-            itemCount: previousUpload.itemCount,
-            warnings: toJsonValue([
-              {
-                code: "DUPLICATE_FILE",
-                message: "File yang sama sudah pernah di-import.",
-              },
-            ]),
-          },
-        });
-
-        return {
-          deliveryNotes: previousUpload.deliveryNoteCount,
-          duplicate: true,
-          items: previousUpload.itemCount,
-          purchaseOrders: previousUpload.purchaseOrderCount,
-          warnings: [
-            {
-              code: "DUPLICATE_FILE",
-              message: "File yang sama sudah pernah di-import.",
-            },
-          ],
-        };
-      }
-
+      // Validasi duplikat concurrent. Gunakan explicit check terhadap PO aktif
+      // yang mungkin saja baru saja terbuat pada transaction lain.
       const existingPurchaseOrder = await transaction.purchaseOrder.findUnique({
         where: {
           companyCode_normalizedPoNumber: {
@@ -118,6 +104,55 @@ export async function importPurchaseOrder(
           },
         },
       });
+
+      // Jika kita menganggap ini REIMPORT_AFTER_DELETE atau NEW_FILE,
+      // tapi tiba-tiba PO nya ada, berarti race condition, batalkan import.
+      if (
+        existingPurchaseOrder &&
+        (input.importStatus === "REIMPORT_AFTER_DELETE" || input.importStatus === "NEW_FILE")
+      ) {
+        // Karena ada perbedaan state sebelum transaction dan saat transaction,
+        // kita batalkan.
+        await transaction.upload.update({
+          where: { id: input.uploadId },
+          data: {
+            importStatus: "DUPLICATE",
+            purchaseOrderCount: 1,
+            deliveryNoteCount: existingPurchaseOrder.deliveryNotes.length,
+            itemCount: existingPurchaseOrder.deliveryNotes.reduce((acc, dn) => acc + dn.items.length, 0),
+            warnings: toJsonValue([
+              {
+                code: "DUPLICATE_FILE",
+                message: "File dan data PO yang sama baru saja terdeteksi masih tersedia.",
+              },
+            ]),
+          },
+        });
+
+        return {
+          deliveryNotes: existingPurchaseOrder.deliveryNotes.length,
+          duplicate: true,
+          items: existingPurchaseOrder.deliveryNotes.reduce((acc, dn) => acc + dn.items.length, 0),
+          purchaseOrders: 1,
+          warnings: [
+            {
+              code: "DUPLICATE_FILE",
+              message: "File dan data PO yang sama baru saja terdeteksi masih tersedia.",
+            },
+          ],
+          databaseChanges: {
+            purchaseOrdersCreated: 0,
+            purchaseOrdersUpdated: 0,
+            deliveryNotesCreated: 0,
+            deliveryNotesUpdated: 0,
+            itemsCreated: 0,
+            itemsUpdated: 0,
+          },
+        };
+      }
+
+      const isNewPO = !existingPurchaseOrder;
+
       const purchaseOrder = await transaction.purchaseOrder.upsert({
         where: {
           companyCode_normalizedPoNumber: {
@@ -134,12 +169,10 @@ export async function importPurchaseOrder(
           poNumber: input.parsed.poNumber,
         },
         update: {
-          companyName: input.parsed.companyName,
           lastSourceUploadId: input.uploadId,
-          period: input.parsed.period,
-          poNumber: input.parsed.poNumber,
         },
       });
+
       const existingNotesByBranch = new Map(
         (existingPurchaseOrder?.deliveryNotes ?? []).map((deliveryNote) => [
           deliveryNote.normalizedBranchName,
@@ -153,21 +186,42 @@ export async function importPurchaseOrder(
       );
       const reimportWarnings: ImportIssue[] = [];
 
+      let deliveryNotesCreated = 0;
+      let deliveryNotesUpdated = 0;
+      let itemsCreated = 0;
+      let itemsUpdated = 0;
+
       for (const parsedDeliveryNote of input.parsed.deliveryNotes) {
         const existingDeliveryNote = existingNotesByBranch.get(
           parsedDeliveryNote.normalizedBranchName,
         );
+        const branchWasManuallyEdited =
+          existingDeliveryNote !== undefined &&
+          existingDeliveryNote.branchName !==
+            existingDeliveryNote.originalBranchName;
+        const recipientWasManuallyEdited =
+          existingDeliveryNote !== undefined &&
+          existingPurchaseOrder !== null &&
+          existingDeliveryNote.recipientCompanyName !==
+            existingPurchaseOrder.companyName;
         const noteFieldsChanged =
           existingDeliveryNote !== undefined &&
-          (existingDeliveryNote.originalBranchName !==
-            parsedDeliveryNote.originalBranchName ||
-            existingDeliveryNote.branchName !== parsedDeliveryNote.branchName ||
-            existingDeliveryNote.recipientCompanyName !==
-              input.parsed.companyName);
+          ((!branchWasManuallyEdited &&
+            existingDeliveryNote.branchName !== parsedDeliveryNote.branchName) ||
+            (!recipientWasManuallyEdited &&
+              existingDeliveryNote.recipientCompanyName !==
+                purchaseOrder.companyName));
         const itemsChanged =
           existingDeliveryNote !== undefined &&
           hasItemChanges(existingDeliveryNote.items, parsedDeliveryNote);
         const contentChanged = noteFieldsChanged || itemsChanged;
+
+        if (!existingDeliveryNote) {
+          deliveryNotesCreated++;
+        } else if (contentChanged) {
+          deliveryNotesUpdated++;
+        }
+
         const deliveryNote = await transaction.deliveryNote.upsert({
           where: {
             purchaseOrderId_normalizedBranchName: {
@@ -180,7 +234,7 @@ export async function importPurchaseOrder(
             normalizedBranchName: parsedDeliveryNote.normalizedBranchName,
             originalBranchName: parsedDeliveryNote.originalBranchName,
             purchaseOrderId: purchaseOrder.id,
-            recipientCompanyName: input.parsed.companyName,
+            recipientCompanyName: purchaseOrder.companyName,
             uniqueCode: createStableDeliveryNoteCode({
               companyCode: input.parsed.companyCode,
               normalizedBranchName:
@@ -189,21 +243,48 @@ export async function importPurchaseOrder(
             }),
           },
           update: {
-            branchName: parsedDeliveryNote.branchName,
+            branchName: branchWasManuallyEdited
+              ? undefined
+              : parsedDeliveryNote.branchName,
             normalizedBranchName: parsedDeliveryNote.normalizedBranchName,
             originalBranchName: parsedDeliveryNote.originalBranchName,
             printStatus: contentChanged
               ? PrintStatus.NOT_PRINTED
               : undefined,
-            recipientCompanyName: input.parsed.companyName,
+            recipientCompanyName: recipientWasManuallyEdited
+              ? undefined
+              : purchaseOrder.companyName,
           },
         });
+
         const importedProducts = parsedDeliveryNote.items.map(
           (item) => item.normalizedProductName,
         );
 
+        const existingItemsMap = new Map(
+          (existingDeliveryNote?.items ?? []).map(item => [item.normalizedProductName, item])
+        );
+
         for (const item of parsedDeliveryNote.items) {
           const decimalQuantity = new Prisma.Decimal(item.quantity);
+          const existingItem = existingItemsMap.get(item.normalizedProductName);
+
+          if (!existingItem) {
+            itemsCreated++;
+          } else {
+            const itemContentChanged =
+              existingItem.originalProductName !== item.originalProductName ||
+              (!existingItem.isManuallyEdited &&
+                existingItem.displayProductName !== item.displayProductName) ||
+              existingItem.sourceQuantity.toString() !== item.quantity ||
+              (!existingItem.isManuallyEdited &&
+                existingItem.quantity.toString() !== item.quantity) ||
+              (!existingItem.isManuallyEdited &&
+                existingItem.sortOrder !== item.sortOrder);
+            if (itemContentChanged) {
+              itemsUpdated++;
+            }
+          }
 
           await transaction.deliveryNoteItem.upsert({
             where: {
@@ -222,10 +303,16 @@ export async function importPurchaseOrder(
               sourceQuantity: decimalQuantity,
             },
             update: {
-              displayProductName: item.displayProductName,
+              displayProductName: existingItem?.isManuallyEdited
+                ? undefined
+                : item.displayProductName,
               originalProductName: item.originalProductName,
-              quantity: decimalQuantity,
-              sortOrder: item.sortOrder,
+              quantity: existingItem?.isManuallyEdited
+                ? undefined
+                : decimalQuantity,
+              sortOrder: existingItem?.isManuallyEdited
+                ? undefined
+                : item.sortOrder,
               sourceQuantity: decimalQuantity,
             },
           });
@@ -235,6 +322,7 @@ export async function importPurchaseOrder(
           where: {
             deliveryNoteId: deliveryNote.id,
             normalizedProductName: { notIn: importedProducts },
+            isManuallyEdited: false,
           },
         });
       }
@@ -275,6 +363,14 @@ export async function importPurchaseOrder(
         items: input.parsed.summary.itemCount,
         purchaseOrders: 1,
         warnings: allWarnings,
+        databaseChanges: {
+          purchaseOrdersCreated: isNewPO ? 1 : 0,
+          purchaseOrdersUpdated: isNewPO ? 0 : 1,
+          deliveryNotesCreated,
+          deliveryNotesUpdated,
+          itemsCreated,
+          itemsUpdated,
+        },
       };
     },
     {

@@ -112,7 +112,22 @@ export type ParsedImport = {
   summary: ParsedImportSummary;
 };
 
-export type ImportResultStatus = "IMPORTED" | "DUPLICATE" | "FAILED";
+export type ImportResultStatus =
+  | "NEW_FILE"
+  | "DUPLICATE_ACTIVE"
+  | "REIMPORT_AFTER_DELETE"
+  | "REVISION"
+  | "IMPORTED"
+  | "DUPLICATE" // Legacy or fallback duplicate state
+  | "FAILED";
+
+export type DuplicateClassification =
+  | "NEW_FILE"
+  | "DUPLICATE_ACTIVE"
+  | "REIMPORT_AFTER_DELETE"
+  | "SAME_NAME_DIFFERENT_HASH"
+  | "DIFFERENT_NAME_SAME_HASH"
+  | "REVISION";
 
 export type ImportFileResult = {
   confidence: number | null;
@@ -124,6 +139,22 @@ export type ImportFileResult = {
   purchaseOrders: number;
   status: ImportResultStatus;
   warnings: ImportIssue[];
+  classification?: DuplicateClassification;
+  companyCode?: string;
+  companyName?: string;
+  extension?: string;
+  fileSize?: number;
+  period?: string | null;
+  poNumber?: string;
+  existingPurchaseOrderId?: string;
+  databaseChanges?: {
+    purchaseOrdersCreated: number;
+    purchaseOrdersUpdated: number;
+    deliveryNotesCreated: number;
+    deliveryNotesUpdated: number;
+    itemsCreated: number;
+    itemsUpdated: number;
+  };
 };
 
 export type ExtractedPurchaseOrderMetadata = {

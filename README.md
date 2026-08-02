@@ -3,11 +3,7 @@
 Sistem Surat Jalan adalah aplikasi web internal CV. Pramudya Putra untuk
 mengubah file Purchase Order Excel menjadi data surat jalan per cabang.
 
-Project saat ini berada pada **Phase 2 — Database domain dan import Excel
-adaptif**. Upload `.xls`/`.xlsx`, deteksi struktur, normalisasi, penyimpanan
-transactional, serta proteksi duplicate telah tersedia. Daftar dan pencarian
-surat jalan tetap menjadi scope Phase 3.
-
+Project saat ini berada pada **Phase 3 — Daftar, Pencarian, Status, Detail, dan Edit Data Surat Jalan**. Upload `.xls`/`.xlsx`, penyimpanan transaksional, daftar surat jalan, pencarian berdasarkan kode/PO/cabang, detail surat jalan, serta form edit surat jalan telah tersedia. Pencetakan surat jalan ke PDF tetap menjadi scope Phase 4.
 ## Prasyarat
 
 - Node.js 22.12 atau lebih baru
@@ -68,21 +64,34 @@ npm run dev
 
 Buka [http://localhost:3000](http://localhost:3000).
 
-Route Phase 2:
+Route Phase 3:
 
-- `/upload` — upload dan hasil import Excel
-- `/surat-jalan` — placeholder daftar Phase 3
+- `/login` — login admin internal
+- `/dashboard` — ringkasan PO dan progres pencetakan
+- `/po` — upload Excel, preview/konfirmasi, serta daftar PO
+- `/po/[id]` — detail satu PO dan surat jalannya
+- `/upload` — redirect kompatibilitas ke `/po?upload=true`
+- `/surat-jalan` — daftar dan pencarian surat jalan dengan paginasi
+- `/surat-jalan/[id]` — halaman detail surat jalan
+- `/surat-jalan/[id]/edit` — form edit surat jalan
 - `/api/imports` — endpoint `POST multipart/form-data`
 - `/api/health` — health check aplikasi dan PostgreSQL
 
 ## Menggunakan upload Excel
 
-1. Buka `/upload`.
+1. Login, lalu buka `/po`.
 2. Tarik file ke area upload atau pilih melalui file picker.
 3. Pilih maksimal 10 file.
-4. Klik **Import file**.
-5. Periksa hasil per file, jumlah PO, cabang, item, sheet, confidence,
+4. Klik **Review Data PO** dan periksa preview tanpa perubahan database.
+5. Klik **Import Data PO** untuk mengonfirmasi penyimpanan.
+6. Periksa hasil per file, jumlah PO, cabang, item, sheet, confidence,
    warning, dan error.
+
+## Provisioning admin
+
+Isi `ADMIN_USERNAME` dan `ADMIN_PASSWORD` (minimal 12 karakter) melalui
+environment yang aman, lalu jalankan `npm run admin:provision`. Script tidak
+memiliki username/password default dan tidak mencetak password.
 
 Ketentuan awal:
 
@@ -196,7 +205,8 @@ docker compose ps
 Pesan API tidak mengembalikan stack trace, SQL, URL database, path internal,
 atau credential.
 
-## Batas Phase 2
+## Batas Phase 3
 
-Phase 2 belum menyediakan daftar/pencarian surat jalan, editor, preview A4,
-print, PDF, autentikasi, atau fitur Phase 3–6.
+Phase 3 sudah menyediakan autentikasi admin, Dashboard, workspace Data PO,
+preview/konfirmasi import, detail/edit, dan penghapusan PO yang aman. Preview
+A4 final, Print, serta PDF tetap berada di phase berikutnya.

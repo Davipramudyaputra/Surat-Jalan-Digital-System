@@ -79,10 +79,13 @@ describe.runIf(runDatabaseTests)("database verification fixture", () => {
       name: "Lampiran PO Aneka Cetakan Cabang Periode Juli 2026.xls",
       size: fixtureBuffer.byteLength,
       type: "application/vnd.ms-excel",
+      mode: "commit" as const,
     };
     const firstImport = await processImportFile(payload);
 
-    expect(["IMPORTED", "DUPLICATE"]).toContain(firstImport.status);
+    expect(["IMPORTED", "DUPLICATE_ACTIVE", "REIMPORT_AFTER_DELETE"]).toContain(
+      firstImport.status,
+    );
 
     const purchaseOrder = await prisma.purchaseOrder.findUnique({
       where: {
@@ -108,7 +111,7 @@ describe.runIf(runDatabaseTests)("database verification fixture", () => {
     ).toBe(462);
 
     const secondImport = await processImportFile(payload);
-    expect(secondImport.status).toBe("DUPLICATE");
+    expect(secondImport.status).toBe("DUPLICATE_ACTIVE");
 
     const scopedPurchaseOrderCount = await prisma.purchaseOrder.count({
       where: {
@@ -162,6 +165,7 @@ describe.runIf(runDatabaseTests)("database verification fixture", () => {
         name: "phase-2-reimport-verification-a.xlsx",
         size: firstBuffer.byteLength,
         type: "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+        mode: "commit",
       });
 
       expect(firstImport.status).toBe("IMPORTED");
@@ -196,6 +200,7 @@ describe.runIf(runDatabaseTests)("database verification fixture", () => {
         name: "phase-2-reimport-verification-b.xlsx",
         size: secondBuffer.byteLength,
         type: "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+        mode: "commit",
       });
 
       expect(secondImport.status).toBe("IMPORTED");
@@ -248,6 +253,146 @@ describe.runIf(runDatabaseTests)("database verification fixture", () => {
       ]);
       expect(bogor?.printStatus).toBe("PRINTED");
       expect(bandung?.printStatus).toBe("PRINTED");
+    } finally {
+      await cleanupSyntheticFixture(prisma);
+      await prisma.$disconnect();
+    }
+  }, 30_000);
+
+  it("preview tidak menulis data dan klasifikasi hash mendukung duplicate serta re-import setelah delete", async () => {
+    await import("dotenv/config");
+    const [{ processImportFile }, { prisma }] = await Promise.all([
+      import("@/features/imports/services/process-import-file"),
+      import("@/lib/prisma"),
+    ]);
+
+    await cleanupSyntheticFixture(prisma);
+
+    try {
+      const buffer = buildSyntheticWorkbook([
+        [1, "Cianjur", 10, 2, null],
+        [2, "Bogor", 5, null, null],
+      ]);
+      const fileName = "phase-2-reimport-verification-classification.xlsx";
+      const basePayload = {
+        buffer,
+        name: fileName,
+        size: buffer.byteLength,
+        type: "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+      };
+      const uploadsBefore = await prisma.upload.count();
+
+      const preview = await processImportFile({
+        ...basePayload,
+        mode: "preview",
+      });
+      expect(preview.status).toBe("NEW_FILE");
+      expect(preview.classification).toBe("NEW_FILE");
+      expect(await prisma.upload.count()).toBe(uploadsBefore);
+
+      const committed = await processImportFile({
+        ...basePayload,
+        mode: "commit",
+      });
+      expect(committed.status).toBe("IMPORTED");
+      expect(committed.databaseChanges).toMatchObject({
+        purchaseOrdersCreated: 1,
+        deliveryNotesCreated: 2,
+      });
+
+      const manuallyEditedItem = await prisma.deliveryNoteItem.findFirstOrThrow({
+        where: {
+          deliveryNote: {
+            branchName: "Cianjur",
+            purchaseOrder: { normalizedPoNumber: syntheticPoNumber },
+          },
+        },
+      });
+      await prisma.deliveryNoteItem.update({
+        where: { id: manuallyEditedItem.id },
+        data: {
+          displayProductName: "Produk Manual",
+          quantity: 99,
+          isManuallyEdited: true,
+        },
+      });
+
+      const renamedDuplicate = await processImportFile({
+        ...basePayload,
+        name: "phase-2-reimport-verification-renamed.xlsx",
+        mode: "preview",
+      });
+      expect(renamedDuplicate.status).toBe("DUPLICATE_ACTIVE");
+      expect(renamedDuplicate.classification).toBe("DIFFERENT_NAME_SAME_HASH");
+
+      const revisionBuffer = buildSyntheticWorkbook([
+        [1, "Cianjur", 11, 2, null],
+        [2, "Bogor", 5, null, null],
+      ]);
+      const sameNameRevision = await processImportFile({
+        ...basePayload,
+        buffer: revisionBuffer,
+        size: revisionBuffer.byteLength,
+        mode: "preview",
+      });
+      expect(sameNameRevision.status).toBe("REVISION");
+      expect(sameNameRevision.classification).toBe("SAME_NAME_DIFFERENT_HASH");
+
+      const revisionCommit = await processImportFile({
+        ...basePayload,
+        buffer: revisionBuffer,
+        size: revisionBuffer.byteLength,
+        mode: "commit",
+      });
+      expect(revisionCommit.status).toBe("IMPORTED");
+      const preservedManualItem = await prisma.deliveryNoteItem.findUniqueOrThrow({
+        where: { id: manuallyEditedItem.id },
+      });
+      expect(preservedManualItem.displayProductName).toBe("Produk Manual");
+      expect(preservedManualItem.quantity.toString()).toBe("99");
+
+      const activePo = await prisma.purchaseOrder.findUniqueOrThrow({
+        where: {
+          companyCode_normalizedPoNumber: {
+            companyCode: "SOF",
+            normalizedPoNumber: syntheticPoNumber,
+          },
+        },
+      });
+      await prisma.$transaction(async (tx) => {
+        await tx.deliveryNoteItem.deleteMany({
+          where: { deliveryNote: { purchaseOrderId: activePo.id } },
+        });
+        await tx.deliveryNote.deleteMany({
+          where: { purchaseOrderId: activePo.id },
+        });
+        await tx.purchaseOrder.delete({ where: { id: activePo.id } });
+      });
+
+      const reimportPreview = await processImportFile({
+        ...basePayload,
+        mode: "preview",
+      });
+      expect(reimportPreview.status).toBe("REIMPORT_AFTER_DELETE");
+
+      const reimported = await processImportFile({
+        ...basePayload,
+        mode: "commit",
+      });
+      expect(reimported.status).toBe("REIMPORT_AFTER_DELETE");
+      expect(
+        await prisma.purchaseOrder.count({
+          where: {
+            companyCode: "SOF",
+            normalizedPoNumber: syntheticPoNumber,
+          },
+        }),
+      ).toBe(1);
+      expect(
+        await prisma.deliveryNote.count({
+          where: { purchaseOrder: { normalizedPoNumber: syntheticPoNumber } },
+        }),
+      ).toBe(2);
     } finally {
       await cleanupSyntheticFixture(prisma);
       await prisma.$disconnect();

@@ -1,8 +1,6 @@
 import type { Metadata } from "next";
 import type { ReactNode } from "react";
 
-import { AppShell } from "@/components/layout/app-shell";
-
 import "./globals.css";
 
 export const metadata: Metadata = {
@@ -21,9 +19,7 @@ type RootLayoutProps = Readonly<{
 export default function RootLayout({ children }: RootLayoutProps) {
   return (
     <html lang="id">
-      <body>
-        <AppShell>{children}</AppShell>
-      </body>
+      <body className="antialiased bg-gray-50">{children}</body>
     </html>
   );
 }

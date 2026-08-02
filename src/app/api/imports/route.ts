@@ -9,6 +9,7 @@ import {
 import { processImportFile } from "@/features/imports/services/process-import-file";
 import type { ImportFileResult } from "@/features/imports/types/import-types";
 import { sanitizeFileName } from "@/features/imports/validation/file-validation";
+import { requireAdmin } from "@/lib/session";
 
 export const dynamic = "force-dynamic";
 export const runtime = "nodejs";
@@ -34,6 +35,21 @@ function invalidRequest(message: string, status = 400): NextResponse {
 }
 
 export async function POST(request: Request): Promise<NextResponse> {
+  try {
+    await requireAdmin();
+  } catch {
+    return NextResponse.json(
+      {
+        error: {
+          code: "UNAUTHORIZED",
+          message: "Sesi admin tidak valid. Silakan login kembali.",
+        },
+        results: [],
+      },
+      { headers: noStoreHeaders, status: 401 },
+    );
+  }
+
   let formData: FormData;
 
   try {
@@ -41,6 +57,9 @@ export async function POST(request: Request): Promise<NextResponse> {
   } catch {
     return invalidRequest("Request upload tidak dapat dibaca.");
   }
+
+  const modeParam = formData.get("mode");
+  const mode = modeParam === "commit" ? "commit" : "preview";
 
   const files = formData
     .getAll("files")
@@ -74,6 +93,8 @@ export async function POST(request: Request): Promise<NextResponse> {
             },
           ],
           fileName,
+          fileSize: file.size,
+          extension: fileName.slice(fileName.lastIndexOf(".")).toLocaleLowerCase("en-US"),
           items: 0,
           purchaseOrders: 0,
           status: "FAILED",
@@ -90,6 +111,7 @@ export async function POST(request: Request): Promise<NextResponse> {
           name: fileName,
           size: file.size,
           type: file.type,
+          mode,
         }),
       );
     } catch {
