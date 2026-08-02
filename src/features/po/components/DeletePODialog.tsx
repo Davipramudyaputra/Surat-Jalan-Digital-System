@@ -2,6 +2,7 @@
 
 import { useActionState, useEffect, useRef, useState } from "react";
 import { deletePurchaseOrderAction } from "../actions";
+import { canSubmitDeleteConfirmation } from "../utils/delete-confirmation";
 
 export type DeletePODialogProps = {
   purchaseOrderId: string;
@@ -25,8 +26,13 @@ export function DeletePODialog({ props }: { props: DeletePODialogProps }) {
 
   const hasNotPrinted = props.notPrintedCount > 0;
   const isComplete = !hasNotPrinted;
-  const isMatch = confirmText === props.poNumber;
-  const canSubmit = isComplete && isAcknowledged && isMatch && !isPending;
+  const canSubmit = canSubmitDeleteConfirmation({
+    confirmationText: confirmText,
+    isAcknowledged,
+    isPending,
+    notPrintedCount: props.notPrintedCount,
+    poNumber: props.poNumber,
+  });
 
   useEffect(() => {
     if (isOpen && dialogRef.current) {
@@ -105,7 +111,7 @@ export function DeletePODialog({ props }: { props: DeletePODialogProps }) {
             <p className="text-sm text-gray-700 mb-4">
               {isComplete
                 ? "Seluruh data PO akan dihapus permanen dan tindakan ini tidak dapat dibatalkan."
-                : `Sebanyak ${props.notPrintedCount} surat jalan belum dicetak. PO ini belum dapat dihapus. Selesaikan proses cetak seluruh surat jalan terlebih dahulu.`
+                : `Sebanyak ${props.notPrintedCount} surat jalan belum dicetak. Jika Anda melanjutkan, seluruh PO, surat jalan, dan daftar barang di dalamnya akan dihapus secara permanen.`
               }
             </p>
 
@@ -120,7 +126,7 @@ export function DeletePODialog({ props }: { props: DeletePODialogProps }) {
                   value="true"
                   checked={isAcknowledged}
                   onChange={(e) => setIsAcknowledged(e.target.checked)}
-                  disabled={isPending || hasNotPrinted}
+                  disabled={isPending}
                   className="mt-0.5 text-red-600 rounded border-gray-300 focus:ring-red-600"
                 />
                 <span className="text-sm text-gray-700 select-none">
@@ -140,7 +146,7 @@ export function DeletePODialog({ props }: { props: DeletePODialogProps }) {
                   value={confirmText}
                   onChange={(e) => setConfirmText(e.target.value)}
                   placeholder="Masukkan nomor PO secara persis"
-                  disabled={isPending || hasNotPrinted}
+                  disabled={isPending}
                   className="w-full px-3 py-2 border border-gray-300 rounded-md focus:ring-red-500 focus:border-red-500 sm:text-sm outline-none"
                   autoComplete="off"
                 />
@@ -172,7 +178,7 @@ export function DeletePODialog({ props }: { props: DeletePODialogProps }) {
                       Menghapus...
                     </>
                   ) : (
-                    isComplete ? "Hapus Data PO" : "Belum Dapat Dihapus"
+                    "Hapus Data PO"
                   )}
                 </button>
               </div>

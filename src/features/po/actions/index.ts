@@ -7,7 +7,6 @@ import { normalizePoNumber } from "@/features/imports/normalization/normalize-po
 import { prisma } from "@/lib/prisma";
 import { requireAdmin } from "@/lib/session";
 import { editPurchaseOrderSchema } from "../schemas";
-import { canDeletePurchaseOrder } from "../utils/delete-policy";
 
 type ActionState = { error: string };
 
@@ -177,28 +176,6 @@ export async function deletePurchaseOrderAction(
         throw new ConcurrencyError();
       }
 
-      // Hitung ulang status cetak di dalam transaksi. Nilai UI tidak pernah
-      // dipakai sebagai dasar penghapusan.
-      const [totalCount, printedCount, notPrintedCount] = await Promise.all([
-        tx.deliveryNote.count({ where: { purchaseOrderId: id } }),
-        tx.deliveryNote.count({
-          where: { purchaseOrderId: id, printStatus: "PRINTED" },
-        }),
-        tx.deliveryNote.count({
-          where: { purchaseOrderId: id, printStatus: "NOT_PRINTED" },
-        }),
-      ]);
-
-      if (
-        !canDeletePurchaseOrder({
-          totalCount,
-          printedCount,
-          notPrintedCount,
-        })
-      ) {
-        throw new Error("NOT_ALL_PRINTED");
-      }
-
       await tx.deliveryNoteItem.deleteMany({
         where: { deliveryNote: { purchaseOrderId: id } },
       });
@@ -223,12 +200,6 @@ export async function deletePurchaseOrderAction(
     }
     if (error instanceof Error && error.message === "CONFIRMATION_MISMATCH") {
       return { error: "Nomor PO konfirmasi harus sama persis." };
-    }
-    if (error instanceof Error && error.message === "NOT_ALL_PRINTED") {
-      return {
-        error:
-          "Purchase Order hanya dapat dihapus setelah seluruh surat jalan berstatus Sudah Dicetak.",
-      };
     }
     console.error("Penghapusan PO gagal karena kesalahan internal.");
     return { error: "Terjadi kesalahan sistem saat menghapus Purchase Order." };

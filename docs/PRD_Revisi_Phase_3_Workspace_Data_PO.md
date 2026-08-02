@@ -53,7 +53,7 @@
 - Bagian bawah halaman Data PO menampilkan seluruh Purchase Order yang berhasil di-import ke sistem.
 - Satu baris/kartu pada daftar mewakili satu PO, bukan satu file. Satu file yang mengandung beberapa PO dapat menghasilkan beberapa entri PO.
 - Klik salah satu PO membuka halaman khusus `/po/[poId]`, yang hanya menampilkan data surat jalan dari PO tersebut.
-- Di halaman detail PO, user dapat mencari cabang/kode surat jalan, memfilter status, membuka surat jalan, mengedit identitas PO, melihat progres cetak, dan menghapus PO yang sudah selesai.
+- Di halaman detail PO, user dapat mencari cabang/kode surat jalan, memfilter status, membuka surat jalan, mengedit identitas PO, melihat progres cetak, dan menghapus PO melalui konfirmasi ketat.
 - Fitur cetak dan PDF final tetap dikerjakan di Phase 5. Revisi Phase 3 hanya menyiapkan alur dan titik integrasinya tanpa tombol palsu yang seolah sudah berfungsi.
 - Route lama dipertahankan untuk kompatibilitas, tetapi tidak menjadi pusat navigasi user.
 
@@ -63,7 +63,7 @@
 - Upload dan pencarian surat jalan sebelumnya tersebar di halaman berbeda, sehingga flow user kurang alami.
 - User belum mempunyai tampilan yang menunjukkan seluruh PO yang pernah di-import dan progres pencetakannya.
 - User belum dapat membuka satu PO sebagai konteks kerja khusus, sehingga pencarian global dapat mencampurkan data antar-PO.
-- Belum tersedia penghapusan satu PO yang sudah selesai dan tidak diperlukan lagi.
+- Belum tersedia penghapusan satu PO yang tidak diperlukan lagi melalui konfirmasi ketat.
 - Aplikasi belum memiliki login, proteksi route, dashboard operasional, dan navigasi yang terasa seperti produk internal profesional.
 - Edit data PO berisiko mengubah data PO lain apabila informasi perusahaan disimpan sebagai master global tanpa scope yang jelas.
 
@@ -72,7 +72,7 @@
 - Memberikan visibilitas instan terhadap total PO, total surat jalan, jumlah sudah dicetak, dan jumlah belum dicetak.
 - Membatasi pencarian pada PO yang sedang dibuka agar hasil lebih akurat dan mudah dipahami.
 - Memungkinkan koreksi identitas PO secara aman dan konsisten untuk seluruh surat jalan di dalam PO tersebut.
-- Memungkinkan penghapusan satu PO secara aman hanya ketika seluruh surat jalannya sudah dicetak.
+- Memungkinkan penghapusan satu PO secara aman dengan persetujuan eksplisit dan konfirmasi nomor PO lengkap.
 - Melindungi seluruh halaman dan mutation melalui autentikasi server-side.
 - Menjaga parser Excel, re-import, status, editor surat jalan, dan fixture Phase 2/3 existing tetap berfungsi.
 
@@ -122,7 +122,7 @@ Logout
 9. User mencari cabang atau kode surat jalan di dalam PO.
 10. User membuka surat jalan untuk melihat atau mengedit data.
 11. Pada Phase 5, action cetak dan PDF ditambahkan pada alur yang sama.
-12. Setelah seluruh surat jalan pada PO berstatus Sudah Dicetak, user dapat menghapus PO melalui konfirmasi ketat.
+12. User dapat menghapus PO melalui konfirmasi ketat; PO yang masih memiliki surat jalan belum dicetak menampilkan peringatan tambahan.
 
 ```text
 Login
@@ -134,7 +134,7 @@ Login
               -> Cari cabang/surat jalan dalam PO
               -> Buka atau edit surat jalan
               -> (Phase 5) Preview / Print / PDF
-              -> Hapus PO ketika seluruh data selesai dicetak
+              -> Hapus PO melalui konfirmasi ketat
 ```
 
 ## 7. Halaman Login
@@ -232,14 +232,15 @@ Route `/po/[poId]` adalah workspace khusus satu PO dan tidak boleh menampilkan d
 
 ## 12. Hapus Data PO
 ### 12.1 Kelayakan Penghapusan
-- PO hanya dapat dihapus jika mempunyai minimal satu surat jalan dan seluruh surat jalannya berstatus `PRINTED`.
-- Jika masih ada `NOT_PRINTED`, tombol Hapus dinonaktifkan atau action server menolak dengan penjelasan jumlah yang belum dicetak.
-- Kelayakan harus dicek ulang di server di dalam transaction; status di UI tidak boleh menjadi satu-satunya pengaman.
+- PO dapat dihapus tanpa bergantung pada status cetak apabila admin menyelesaikan seluruh konfirmasi penghapusan.
+- Jika masih ada `NOT_PRINTED`, modal wajib menampilkan jumlah data yang belum dicetak dan memperingatkan bahwa data tersebut ikut terhapus permanen.
+- Server wajib memverifikasi session admin, acknowledgment, nomor PO yang diketik persis, dan snapshot concurrency di dalam transaction.
 
 ### 12.2 Konfirmasi
 - Modal menampilkan nomor PO, perusahaan, total surat jalan, total item, sudah dicetak, dan belum dicetak.
+- User wajib mencentang persetujuan penghapusan permanen.
 - User wajib mengetik nomor PO lengkap secara persis.
-- Tombol hapus aktif hanya saat teks cocok dan syarat status terpenuhi.
+- Tombol hapus aktif hanya saat persetujuan dicentang dan teks cocok.
 - Pesan menegaskan tindakan permanen dan tidak dapat dibatalkan.
 
 ### 12.3 Data yang Dihapus
@@ -282,7 +283,7 @@ Route `/po/[poId]` adalah workspace khusus satu PO dan tidak boleh menampilkan d
 | BR-04 | Search pada detail PO tidak boleh keluar dari scope PO aktif. |
 | BR-05 | Perubahan identitas PO yang memengaruhi dokumen mereset surat jalan PRINTED dalam PO itu ke NOT_PRINTED. |
 | BR-06 | Perubahan lokal surat jalan tidak mengubah PO atau surat jalan lain. |
-| BR-07 | PO hanya dapat dihapus jika semua surat jalan PRINTED. |
+| BR-07 | PO dapat dihapus setelah acknowledgment dan nomor PO lengkap diverifikasi di server, termasuk ketika masih ada surat jalan NOT_PRINTED. |
 | BR-08 | Penghapusan PO bersifat hard delete pada data bisnis terkait dan atomik. |
 | BR-09 | Re-import file identik tidak menggandakan PO/surat jalan/item. |
 | BR-10 | Edit data PO tidak boleh mengubah PO lain melalui shared Company secara tidak sengaja. |
@@ -320,7 +321,7 @@ Route `/po/[poId]` adalah workspace khusus satu PO dan tidak boleh menampilkan d
 | POE-01 | Edit PO | Nomor/kode/nama/periode dapat diubah secara scoped dan transactional. |
 | POE-02 | Konfirmasi global | Jumlah surat jalan terdampak ditampilkan sebelum save. |
 | POE-03 | Status reset | Hanya PO terkait yang di-reset ketika data dokumen berubah. |
-| PODL-01 | Blokir hapus belum selesai | PO dengan NOT_PRINTED tidak dapat dihapus di UI maupun server. |
+| PODL-01 | Peringatan hapus belum selesai | PO dengan NOT_PRINTED menampilkan jumlah terdampak dan peringatan permanen sebelum konfirmasi. |
 | PODL-02 | Konfirmasi ketik PO | Delete hanya aktif jika input sama persis. |
 | PODL-03 | Delete atomik | Item, surat jalan, dan PO terkait terhapus; PO lain aman. |
 | NAV-01 | App shell | Sidebar, header, breadcrumb, user, logout konsisten. |
@@ -358,7 +359,7 @@ Route `/po/[poId]` adalah workspace khusus satu PO dan tidak boleh menampilkan d
 | PO tidak ditemukan | Not found dengan link kembali ke Data PO. |
 | Search tidak menemukan hasil | Empty result yang mempertahankan konteks PO/filter. |
 | Conflict concurrency | Pesan bahwa data telah berubah dan harus dimuat ulang. |
-| Hapus diblokir | Tampilkan jumlah sudah/belum dicetak dan alasan. |
+| Hapus berisiko | Tampilkan jumlah sudah/belum dicetak dan minta acknowledgment serta nomor PO persis. |
 | Hapus gagal | Data rollback dan pesan aman; tidak ada partial delete. |
 | Session berakhir | Redirect login dan tidak menjalankan mutation. |
 
@@ -408,7 +409,7 @@ Route `/po/[poId]` adalah workspace khusus satu PO dan tidak boleh menampilkan d
 - Pencarian Cianjur di PO sample berhasil dan detailnya tetap berisi tiga item expected.
 - Edit PO bersifat scoped, transactional, mempunyai konfirmasi, validation, dan concurrency protection.
 - Perubahan identitas PO tidak mengubah PO lain secara tidak sengaja.
-- Delete diblokir jika minimal satu surat jalan belum dicetak.
+- Delete PO yang masih memiliki surat jalan belum dicetak hanya berjalan setelah acknowledgment dan nomor PO persis tervalidasi.
 - Delete valid menghapus hanya item/surat jalan/PO target secara atomik.
 - Route `/upload` tetap bekerja melalui redirect dan route existing tidak rusak.
 - Tidak ada implementasi print/PDF setengah jadi pada Phase 3.
