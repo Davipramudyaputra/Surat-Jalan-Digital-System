@@ -3,6 +3,7 @@
 import { useActionState, useEffect, useRef, useState } from "react";
 import { deletePurchaseOrderAction } from "../actions";
 import { canSubmitDeleteConfirmation } from "../utils/delete-confirmation";
+import { AlertTriangle, LoaderCircle, Trash2, X } from "lucide-react";
 
 export type DeletePODialogProps = {
   purchaseOrderId: string;
@@ -60,66 +61,72 @@ export function DeletePODialog({ props }: { props: DeletePODialogProps }) {
     <>
       <button
         onClick={() => setIsOpen(true)}
-        className="inline-flex justify-center rounded-lg px-4 py-2 text-sm font-semibold text-white shadow-sm bg-red-600 hover:bg-red-500"
+        className="brand-danger-button"
         title="Hapus seluruh data PO, surat jalan, dan barang di dalamnya."
       >
+        <Trash2 aria-hidden="true" size={16} />
         Hapus Data PO
       </button>
 
       <dialog
         ref={dialogRef}
-        className="m-auto max-h-[calc(100vh-2rem)] w-[calc(100%-2rem)] max-w-lg overflow-y-auto rounded-xl p-0 shadow-2xl backdrop:bg-gray-900/50"
+        className="delete-dialog"
       >
-        <div className="bg-white">
-          <div className="px-6 py-4 border-b border-gray-100 flex items-center justify-between">
-            <h2 className="text-lg font-bold text-red-600">
+        <div>
+          <div className="delete-dialog-heading">
+            <span className="delete-dialog-icon"><AlertTriangle aria-hidden="true" size={20} /></span>
+            <div>
+            <p>Tindakan permanen</p>
+            <h2>
               {isComplete ? "Hapus Data PO?" : "Hapus Data PO Secara Permanen?"}
             </h2>
+            </div>
             {!isPending && (
               <button
+                aria-label="Tutup dialog hapus"
                 onClick={() => setIsOpen(false)}
-                className="text-gray-400 hover:text-gray-500 focus:outline-none"
+                type="button"
               >
-                ✕
+                <X aria-hidden="true" size={19} />
               </button>
             )}
           </div>
 
-          <div className="px-6 py-4">
+          <div className="delete-dialog-body">
             {!isComplete && (
-              <div className="mb-4 p-3 bg-red-50 border border-red-200 rounded-lg text-sm text-red-800">
-                <p className="font-semibold mb-1">Peringatan Bahaya:</p>
+              <div className="delete-warning">
+                <p>Peringatan Bahaya:</p>
                 <p>PO ini masih memiliki surat jalan yang <strong>belum dicetak</strong>.</p>
               </div>
             )}
 
-            <div className="mb-4 text-sm text-gray-900">
-              <p><span className="text-gray-500 inline-block w-24">Nomor PO:</span> <strong>{props.poNumber}</strong></p>
-              <p><span className="text-gray-500 inline-block w-24">Perusahaan:</span> {props.companyName}</p>
+            <div className="delete-identity">
+              <p><span>Nomor PO</span> <strong>{props.poNumber}</strong></p>
+              <p><span>Perusahaan</span> {props.companyName}</p>
             </div>
 
-            <div className="bg-gray-50 rounded-lg p-4 mb-4 text-sm">
-              <h3 className="font-semibold text-gray-900 mb-2">Ringkasan Data:</h3>
-              <ul className="space-y-1 text-gray-600">
+            <div className="delete-summary">
+              <h3>Ringkasan Data</h3>
+              <ul>
                 <li>Total surat jalan: <strong>{props.totalCount}</strong></li>
                 <li>Sudah dicetak: <strong>{props.printedCount}</strong> ({props.printedPercentage}%)</li>
-                <li>Belum dicetak: <strong className={!isComplete ? "text-red-600" : ""}>{props.notPrintedCount}</strong> ({props.notPrintedPercentage}%)</li>
+                <li>Belum dicetak: <strong data-danger={!isComplete}>{props.notPrintedCount}</strong> ({props.notPrintedPercentage}%)</li>
                 <li>Total barang: <strong>{props.totalItemCount}</strong></li>
               </ul>
             </div>
 
-            <p className="text-sm text-gray-700 mb-4">
+            <p className="delete-explanation">
               {isComplete
                 ? "Seluruh data PO akan dihapus permanen dan tindakan ini tidak dapat dibatalkan."
                 : `Sebanyak ${props.notPrintedCount} surat jalan belum dicetak. Jika Anda melanjutkan, seluruh PO, surat jalan, dan daftar barang di dalamnya akan dihapus secara permanen.`
               }
             </p>
 
-            <form action={formAction} className="space-y-4">
+            <form action={formAction} className="delete-form">
               <input type="hidden" name="id" value={props.purchaseOrderId} />
               <input type="hidden" name="expectedUpdatedAt" value={props.expectedUpdatedAt} />
 
-              <label className="flex items-start gap-3 p-3 border border-gray-200 rounded-lg cursor-pointer hover:bg-gray-50">
+              <label className="delete-acknowledgment">
                 <input
                   type="checkbox"
                   name="acknowledgment"
@@ -127,17 +134,16 @@ export function DeletePODialog({ props }: { props: DeletePODialogProps }) {
                   checked={isAcknowledged}
                   onChange={(e) => setIsAcknowledged(e.target.checked)}
                   disabled={isPending}
-                  className="mt-0.5 text-red-600 rounded border-gray-300 focus:ring-red-600"
                 />
-                <span className="text-sm text-gray-700 select-none">
+                <span>
                   Saya memahami bahwa {hasNotPrinted ? "surat jalan yang belum dicetak" : "seluruh data PO"} akan ikut terhapus secara permanen.
                 </span>
               </label>
 
-              <div>
-                <label htmlFor="confirmPoNumber" className="block text-sm font-medium text-gray-700 mb-1">
+              <div className="form-field">
+                <label htmlFor="confirmPoNumber">
                   Ketik nomor PO berikut untuk melanjutkan:<br/>
-                  <strong className="select-all text-red-600 mt-1 block">{props.poNumber}</strong>
+                  <strong className="delete-confirmation-code">{props.poNumber}</strong>
                 </label>
                 <input
                   type="text"
@@ -147,34 +153,34 @@ export function DeletePODialog({ props }: { props: DeletePODialogProps }) {
                   onChange={(e) => setConfirmText(e.target.value)}
                   placeholder="Masukkan nomor PO secara persis"
                   disabled={isPending}
-                  className="w-full px-3 py-2 border border-gray-300 rounded-md focus:ring-red-500 focus:border-red-500 sm:text-sm outline-none"
+                  className="brand-input"
                   autoComplete="off"
                 />
               </div>
 
               {state.error && (
-                <div className="p-3 text-sm text-red-600 bg-red-50 border border-red-200 rounded-md">
+                <div className="form-message form-message-error" role="alert">
                   {state.error}
                 </div>
               )}
 
-              <div className="flex justify-end gap-3 pt-4">
+              <div className="delete-dialog-actions">
                 <button
                   type="button"
                   onClick={() => setIsOpen(false)}
                   disabled={isPending}
-                  className="px-4 py-2 text-sm font-medium text-gray-700 bg-white border border-gray-300 rounded-lg hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-gray-500 disabled:opacity-50"
+                  className="brand-secondary-button"
                 >
                   Batal
                 </button>
                 <button
                   type="submit"
                   disabled={!canSubmit}
-                  className="px-4 py-2 text-sm font-medium text-white bg-red-600 border border-transparent rounded-lg hover:bg-red-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-red-500 disabled:opacity-50 disabled:cursor-not-allowed flex items-center gap-2"
+                  className="brand-danger-button"
                 >
                   {isPending ? (
                     <>
-                      <span className="animate-spin inline-block w-4 h-4 border-2 border-white border-t-transparent rounded-full"></span>
+                      <LoaderCircle aria-hidden="true" className="dialog-loader" size={16} />
                       Menghapus...
                     </>
                   ) : (

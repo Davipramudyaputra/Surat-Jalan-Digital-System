@@ -5,6 +5,7 @@ import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useTransition } from "react";
 import { POStats } from "../utils/stats";
+import { ArrowRight, PackageOpen } from "lucide-react";
 
 type POWithStats = PurchaseOrder & {
   _count: {
@@ -25,45 +26,50 @@ export function PurchaseOrderList({ purchaseOrders }: { purchaseOrders: POWithSt
 
   if (purchaseOrders.length === 0) {
     return (
-      <div className="p-12 text-center flex flex-col items-center justify-center bg-white rounded-lg border border-dashed border-gray-300 m-6">
-        <div className="text-4xl mb-4">📦</div>
-        <h3 className="text-lg font-medium text-gray-900 mb-1">Tidak ada Purchase Order</h3>
-        <p className="text-sm text-gray-500 max-w-sm mx-auto">
+      <div className="brand-empty-state">
+        <div>
+        <span className="empty-icon-tile"><PackageOpen aria-hidden="true" size={22} /></span>
+        <h3>Tidak ada Purchase Order</h3>
+        <p>
           Belum ada Purchase Order yang sesuai dengan pencarian atau filter Anda. Silakan upload file Excel baru.
         </p>
+        <Link className="brand-primary-button empty-state-action" href="/po?upload=true">
+          Upload Excel Baru
+        </Link>
+        </div>
       </div>
     );
   }
 
   return (
-    <div className="overflow-x-auto">
-      <table className="min-w-full divide-y divide-gray-200">
-        <thead className="bg-gray-50">
+    <div className="brand-table-wrap">
+      <table className="brand-table po-table">
+        <thead>
           <tr>
-            <th scope="col" className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+            <th scope="col">
               Nomor PO
             </th>
-            <th scope="col" className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+            <th scope="col">
               Perusahaan
             </th>
-            <th scope="col" className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+            <th scope="col">
               SJ / Item
             </th>
-            <th scope="col" className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider w-64">
+            <th scope="col">
               Progres Pencetakan
             </th>
-            <th scope="col" className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+            <th scope="col">
               Status
             </th>
-            <th scope="col" className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+            <th scope="col">
               Diperbarui
             </th>
-            <th scope="col" className="relative px-6 py-3">
+            <th scope="col">
               <span className="sr-only">Aksi</span>
             </th>
           </tr>
         </thead>
-        <tbody className="bg-white divide-y divide-gray-200">
+        <tbody>
           {purchaseOrders.map((po) => {
             const { stats } = po;
 
@@ -71,72 +77,72 @@ export function PurchaseOrderList({ purchaseOrders }: { purchaseOrders: POWithSt
               <tr
                 key={po.id}
                 onClick={() => handleRowClick(po.id)}
-                className={`hover:bg-blue-50 cursor-pointer transition-colors ${isPending ? 'opacity-50' : ''}`}
+                className={isPending ? "po-row-pending" : undefined}
               >
-                <td className="px-6 py-4">
-                  <div className="max-w-xs break-words text-sm font-medium text-gray-900">{po.poNumber}</div>
-                  <div className="text-xs text-gray-500">
+                <td>
+                  <div className="po-primary-cell">{po.poNumber}</div>
+                  <div className="po-secondary-cell">
                     Periode: {po.period || "-"}
                   </div>
                 </td>
-                <td className="px-6 py-4">
-                  <div className="max-w-xs break-words text-sm text-gray-900">{po.companyName}</div>
-                  <div className="text-xs text-gray-500">Kode: {po.companyCode}</div>
+                <td>
+                  <div className="po-primary-cell po-company-cell">{po.companyName}</div>
+                  <div className="po-secondary-cell">Kode: {po.companyCode}</div>
                 </td>
-                <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
+                <td className="po-count-cell">
                   <div>{stats.totalCount} surat jalan</div>
-                  <div className="text-xs">{stats.totalItemCount} item</div>
+                  <div>{stats.totalItemCount} item</div>
                 </td>
-                <td className="px-6 py-4 whitespace-nowrap">
-                  <div className="w-full">
-                    <div className="flex justify-between text-xs mb-1">
-                      <span className="text-green-700 font-medium">Sudah: {stats.printedCount} ({stats.printedPercentage}%)</span>
-                      <span className="text-orange-600 font-medium">Belum: {stats.notPrintedCount} ({stats.notPrintedPercentage}%)</span>
+                <td>
+                  <div className="po-progress-cell">
+                    <div>
+                      <span>Sudah {stats.printedPercentage}%</span>
+                      <span>Belum {stats.notPrintedPercentage}%</span>
                     </div>
                     <div
-                      className="w-full bg-gray-200 rounded-full h-2.5 overflow-hidden"
+                      className="brand-progress"
                       role="progressbar"
                       aria-valuenow={stats.printedPercentage}
                       aria-valuemin={0}
                       aria-valuemax={100}
                       aria-label={`${stats.printedPercentage}% selesai`}
                     >
-                      <div className="bg-blue-600 h-2.5 rounded-full transition-all duration-500" style={{ width: `${stats.printedPercentage}%` }}></div>
+                      <span style={{ width: `${stats.printedPercentage}%` }} />
                     </div>
                   </div>
                 </td>
-                <td className="px-6 py-4 whitespace-nowrap">
+                <td>
                   {stats.status === "Selesai" && (
-                    <span className="px-2 inline-flex text-xs leading-5 font-semibold rounded-full bg-green-100 text-green-800">
+                    <span className="brand-status brand-status-success">
                       Selesai
                     </span>
                   )}
                   {stats.status === "Dalam Proses" && (
-                    <span className="px-2 inline-flex text-xs leading-5 font-semibold rounded-full bg-blue-100 text-blue-800">
+                    <span className="brand-status brand-status-progress">
                       Dalam Proses
                     </span>
                   )}
                   {stats.status === "Belum Dimulai" && (
-                    <span className="px-2 inline-flex text-xs leading-5 font-semibold rounded-full bg-orange-100 text-orange-800">
+                    <span className="brand-status brand-status-warning">
                       Belum Dimulai
                     </span>
                   )}
                   {stats.status === "Kosong" && (
-                    <span className="px-2 inline-flex text-xs leading-5 font-semibold rounded-full bg-gray-100 text-gray-800">
+                    <span className="brand-status brand-status-neutral">
                       Kosong
                     </span>
                   )}
                 </td>
-                <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
+                <td className="po-date-cell">
                   {new Date(po.updatedAt).toLocaleDateString('id-ID')}
                 </td>
-                <td className="px-6 py-4 whitespace-nowrap text-right text-sm font-medium">
+                <td>
                   <Link
                     href={`/po/${po.id}`}
                     onClick={(e) => e.stopPropagation()}
-                    className="text-blue-600 hover:text-blue-900"
+                    className="po-open-link"
                   >
-                    Buka
+                    Buka <ArrowRight aria-hidden="true" size={14} />
                   </Link>
                 </td>
               </tr>

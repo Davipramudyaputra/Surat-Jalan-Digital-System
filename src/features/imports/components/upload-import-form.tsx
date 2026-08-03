@@ -14,6 +14,13 @@ import {
 } from "@/features/imports/config/import-limits";
 import type { ImportFileResult } from "@/features/imports/types/import-types";
 import { useRouter } from "next/navigation";
+import {
+  CheckCircle2,
+  Database,
+  Eye,
+  ShieldCheck,
+  UploadCloud,
+} from "lucide-react";
 
 type SelectedFile = {
   file: File;
@@ -210,6 +217,20 @@ export function UploadImportForm() {
 
   return (
     <>
+      <ol className="import-workflow" aria-label="Tahapan import Purchase Order">
+        <li data-active={step === "select"} data-complete={step !== "select"}>
+          <span>1</span><div><strong>Pilih File</strong><small>Excel PO</small></div>
+        </li>
+        <li data-active={isSubmitting && step === "select"} data-complete={step !== "select"}>
+          <span>2</span><div><strong>Validasi</strong><small>Struktur &amp; duplikat</small></div>
+        </li>
+        <li data-active={step === "preview"} data-complete={step === "commit"}>
+          <span>3</span><div><strong>Review</strong><small>Konfirmasi data</small></div>
+        </li>
+        <li data-active={step === "commit"}>
+          <span>4</span><div><strong>Import</strong><small>Simpan ke sistem</small></div>
+        </li>
+      </ol>
       {step === "select" && (
         <section className="upload-workspace" aria-labelledby="upload-form-title">
           <form className="upload-form" onSubmit={handlePreview}>
@@ -240,7 +261,7 @@ export function UploadImportForm() {
                 ref={inputRef}
                 type="file"
               />
-              <span className="upload-file-mark" aria-hidden="true">XLS</span>
+              <span className="upload-file-mark" aria-hidden="true"><UploadCloud size={25} /></span>
               <span className="drop-zone-title">Tarik file Excel ke area ini</span>
               <span className="drop-zone-description">atau klik untuk memilih file dari komputer</span>
               <span className="file-picker-action">Pilih file Excel</span>
@@ -294,6 +315,7 @@ export function UploadImportForm() {
               disabled={selectedFiles.length === 0 || isSubmitting}
               type="submit"
             >
+              {isSubmitting ? <ShieldCheck aria-hidden="true" size={17} /> : <Eye aria-hidden="true" size={17} />}
               {isSubmitting ? "Membaca file..." : "Review Data PO"}
             </button>
           </form>
@@ -338,12 +360,12 @@ export function UploadImportForm() {
                 <article
                   className="result-card"
                   data-status={result.status}
+                  data-duplicate={isDuplicateActive}
                   key={`${result.fileName}-${index}`}
-                  style={{ border: isDuplicateActive ? "1px solid #ef4444" : undefined }}
                 >
                   <div className="result-card-heading">
                     <div>
-                      <span className="result-status" style={{ color: isDuplicateActive ? "#ef4444" : undefined }}>
+                      <span className="result-status" data-error={isDuplicateActive}>
                         {step === "commit" && isSuccessStatus
                           ? "Import Berhasil"
                           : isDuplicateActive
@@ -407,15 +429,14 @@ export function UploadImportForm() {
                   )}
 
                   {isReimport && step === "preview" && (
-                    <div style={{ marginTop: '1rem', padding: '1rem', backgroundColor: '#fef2f2', borderRadius: '4px' }}>
-                      <label style={{ display: 'flex', gap: '0.5rem', alignItems: 'flex-start', cursor: 'pointer' }}>
+                    <div className="reimport-confirmation">
+                      <label>
                         <input
                           type="checkbox"
                           checked={reimportAgreements[result.fileName] || false}
                           onChange={(e) => setReimportAgreements(prev => ({...prev, [result.fileName]: e.target.checked}))}
-                          style={{ marginTop: '0.25rem' }}
                         />
-                        <span style={{ fontSize: '0.875rem' }}>Saya memahami bahwa data PO akan dibuat kembali dari file ini.</span>
+                        <span>Saya memahami bahwa data PO akan dibuat kembali dari file ini.</span>
                       </label>
                     </div>
                   )}
@@ -472,6 +493,7 @@ export function UploadImportForm() {
                   onClick={handleCommit}
                   disabled={isSubmitting}
                 >
+                  {isSubmitting ? <Database aria-hidden="true" size={17} /> : <CheckCircle2 aria-hidden="true" size={17} />}
                   {isSubmitting ? "Menyimpan ke Database..." : "Import Data PO"}
                 </button>
               </div>

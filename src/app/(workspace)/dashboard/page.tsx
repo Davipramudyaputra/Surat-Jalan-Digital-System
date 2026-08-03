@@ -2,6 +2,14 @@ import { Metadata } from "next";
 import { prisma } from "@/lib/prisma";
 import Link from "next/link";
 import { attachPOStats } from "@/features/po/services/po-stats";
+import {
+  ArrowRight,
+  CheckCircle2,
+  Clock3,
+  FileText,
+  PackageOpen,
+  type LucideIcon,
+} from "lucide-react";
 
 export const metadata: Metadata = {
   title: "Dashboard - Sistem Surat Jalan",
@@ -50,133 +58,151 @@ export default async function DashboardPage() {
   const pendingPOsWithStats = await attachPOStats(pendingPOs);
 
   return (
-    <div className="space-y-6 max-w-7xl mx-auto">
-      <div>
-        <h1 className="text-2xl font-bold text-gray-900">Dashboard</h1>
-        <p className="mt-1 text-sm text-gray-500">
+    <div className="brand-page dashboard-page">
+      <header className="brand-page-header">
+        <div>
+          <p className="brand-eyebrow">Ruang kerja operasional</p>
+          <h1>Dashboard</h1>
+          <p>
           Ringkasan aktivitas Sistem Surat Jalan Digital
-        </p>
-      </div>
+          </p>
+        </div>
+        <Link className="brand-primary-button" href="/po?upload=true">
+          <PackageOpen aria-hidden="true" size={17} />
+          Upload Excel Baru
+        </Link>
+      </header>
 
-      {/* KPI Cards */}
-      <div className="grid grid-cols-1 gap-5 sm:grid-cols-2 lg:grid-cols-4">
+      <div className="dashboard-metrics">
         <MetricCard
           title="Total Purchase Order"
           value={totalPO.toString()}
-          icon="📦"
-          color="bg-blue-50 text-blue-700"
+          icon={PackageOpen}
+          note="Data PO tersimpan"
         />
         <MetricCard
           title="Total Surat Jalan"
           value={totalSJ.toString()}
-          icon="📄"
-          color="bg-purple-50 text-purple-700"
+          icon={FileText}
+          note="Dokumen keseluruhan"
         />
         <MetricCard
-          title="Surat Jalan Tercetak"
+          title="Sudah Dicetak"
           value={printedSJ.toString()}
-          icon="🖨️"
-          color="bg-green-50 text-green-700"
+          icon={CheckCircle2}
+          note={`${progressPercentage}% dari seluruh dokumen`}
         />
         <MetricCard
           title="Belum Dicetak"
           value={notPrintedSJ.toString()}
-          icon="🕒"
-          color="bg-orange-50 text-orange-700"
+          icon={Clock3}
+          note="Perlu ditindaklanjuti"
         />
       </div>
 
-      <section className="rounded-xl border border-gray-100 bg-white p-6 shadow-sm">
-        <div className="mb-2 flex items-center justify-between gap-4 text-sm">
-          <h2 className="font-semibold text-gray-900">Progress Keseluruhan</h2>
-          <span className="font-semibold text-blue-700">{progressPercentage}%</span>
+      <section className="brand-card dashboard-progress-card">
+        <div>
+          <div>
+            <p className="brand-eyebrow">Status dokumen</p>
+            <h2>Progres Pencetakan Keseluruhan</h2>
+            <p>{printedSJ} dari {totalSJ} surat jalan telah selesai dicetak.</p>
+          </div>
+          <strong>{progressPercentage}%</strong>
         </div>
         <div
           aria-label={`${progressPercentage}% surat jalan sudah dicetak`}
           aria-valuemax={100}
           aria-valuemin={0}
           aria-valuenow={progressPercentage}
-          className="h-3 overflow-hidden rounded-full bg-gray-200"
+          className="brand-progress"
           role="progressbar"
         >
-          <div
-            className="h-full rounded-full bg-blue-600"
-            style={{ width: `${progressPercentage}%` }}
-          />
+          <span style={{ width: `${progressPercentage}%` }} />
         </div>
       </section>
 
-      {/* Main Content Area */}
-      <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-        {/* Recent POs */}
-        <div className="bg-white rounded-xl shadow-sm border border-gray-100 overflow-hidden">
-          <div className="border-b border-gray-100 px-6 py-4 flex justify-between items-center bg-gray-50/50">
-            <h2 className="text-base font-semibold text-gray-900">PO Terbaru</h2>
-            <Link href="/po" className="text-sm font-medium text-blue-600 hover:text-blue-700">
-              Lihat Semua &rarr;
+      <div className="dashboard-list-grid">
+        <section className="brand-card dashboard-list-card">
+          <div className="brand-section-heading">
+            <div>
+              <h2>PO Terbaru</h2>
+              <p>Pembaruan Purchase Order terakhir.</p>
+            </div>
+            <Link href="/po" className="brand-inline-link">
+              Lihat Semua <ArrowRight aria-hidden="true" size={15} />
             </Link>
           </div>
-          <div className="divide-y divide-gray-100">
+          <div className="dashboard-list">
             {recentPOsWithStats.length > 0 ? (
               recentPOsWithStats.map((po) => (
-                <div key={po.id} className="px-6 py-4 flex items-center justify-between hover:bg-gray-50 transition-colors">
-                  <div>
-                    <Link href={`/po/${po.id}`} className="font-medium text-blue-600 hover:underline">
+                <article key={po.id}>
+                  <div className="dashboard-list-main">
+                    <span className="list-icon"><PackageOpen aria-hidden="true" size={17} /></span>
+                    <div>
+                    <Link href={`/po/${po.id}`}>
                       {po.poNumber}
                     </Link>
-                    <p className="text-sm text-gray-500 mt-0.5">{po.companyName}</p>
+                    <p>{po.companyName}</p>
+                    </div>
                   </div>
-                  <div className="text-right">
-                    <div className="text-sm font-medium text-gray-900">
+                  <div className="dashboard-list-meta">
+                    <strong>
                       {po.stats.printedPercentage}% Selesai
-                    </div>
-                    <div className="text-xs text-gray-500 mt-0.5">
+                    </strong>
+                    <span>
                       {po.stats.printedCount} / {po.stats.totalCount} SJ
-                    </div>
+                    </span>
                   </div>
-                </div>
+                </article>
               ))
             ) : (
-              <div className="px-6 py-8 text-center text-sm text-gray-500">
-                Belum ada data Purchase Order.
+              <div className="dashboard-compact-empty">
+                <PackageOpen aria-hidden="true" size={21} />
+                <span>Belum ada data Purchase Order.</span>
               </div>
             )}
           </div>
-        </div>
+        </section>
 
-        {/* Pending POs */}
-        <div className="bg-white rounded-xl shadow-sm border border-gray-100 overflow-hidden">
-          <div className="border-b border-gray-100 px-6 py-4 bg-gray-50/50">
-            <h2 className="text-base font-semibold text-gray-900">Perlu Diselesaikan</h2>
-            <p className="text-sm text-gray-500">PO dengan surat jalan belum dicetak</p>
+        <section className="brand-card dashboard-list-card">
+          <div className="brand-section-heading">
+            <div>
+              <h2>Perlu Diselesaikan</h2>
+              <p>PO dengan surat jalan yang belum dicetak.</p>
+            </div>
+            <span className="list-icon"><Clock3 aria-hidden="true" size={17} /></span>
           </div>
-          <div className="divide-y divide-gray-100">
+          <div className="dashboard-list">
             {pendingPOsWithStats.length > 0 ? (
               pendingPOsWithStats.map((po) => (
-                <div key={po.id} className="px-6 py-4 flex items-center justify-between hover:bg-gray-50 transition-colors">
-                  <div>
-                    <Link href={`/po/${po.id}`} className="font-medium text-blue-600 hover:underline">
+                <article key={po.id}>
+                  <div className="dashboard-list-main">
+                    <span className="list-icon"><FileText aria-hidden="true" size={17} /></span>
+                    <div>
+                    <Link href={`/po/${po.id}`}>
                       {po.poNumber}
                     </Link>
-                    <p className="text-sm text-gray-500 mt-0.5">{po.companyName}</p>
+                    <p>{po.companyName}</p>
+                    </div>
                   </div>
-                  <div className="text-right">
-                    <div className="text-sm font-medium text-orange-600 bg-orange-50 px-2.5 py-1 rounded-full inline-block">
+                  <div className="dashboard-list-meta">
+                    <span className="brand-status brand-status-warning">
                       {po.stats.status}
-                    </div>
-                    <div className="text-xs text-gray-500 mt-1">
+                    </span>
+                    <span>
                       {po.stats.notPrintedCount} Belum Dicetak
-                    </div>
+                    </span>
                   </div>
-                </div>
+                </article>
               ))
             ) : (
-              <div className="px-6 py-8 text-center text-sm text-gray-500">
-                Semua surat jalan telah dicetak. Bagus sekali!
+              <div className="dashboard-compact-empty">
+                <CheckCircle2 aria-hidden="true" size={21} />
+                <span>Semua surat jalan telah dicetak.</span>
               </div>
             )}
           </div>
-        </div>
+        </section>
       </div>
     </div>
   );
@@ -186,22 +212,24 @@ function MetricCard({
   title,
   value,
   icon,
-  color,
+  note,
 }: {
   title: string;
   value: string;
-  icon: string;
-  color: string;
+  icon: LucideIcon;
+  note: string;
 }) {
+  const Icon = icon;
   return (
-    <div className="bg-white overflow-hidden rounded-xl shadow-sm border border-gray-100 p-6 flex items-center gap-4">
-      <div className={`p-3 rounded-lg ${color} text-2xl`}>
-        {icon}
+    <article className="brand-card metric-card">
+      <div className="metric-icon-tile">
+        <Icon aria-hidden="true" size={21} strokeWidth={1.8} />
       </div>
-      <div className="min-w-0">
-        <p className="text-sm font-medium text-gray-500 truncate">{title}</p>
-        <p className="mt-1 text-2xl font-semibold text-gray-900">{value}</p>
+      <div>
+        <p>{title}</p>
+        <strong>{value}</strong>
+        <span>{note}</span>
       </div>
-    </div>
+    </article>
   );
 }

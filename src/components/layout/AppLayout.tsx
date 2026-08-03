@@ -1,4 +1,6 @@
-import React from "react";
+"use client";
+
+import React, { useState } from "react";
 import { Sidebar } from "./Sidebar";
 import { Header } from "./Header";
 
@@ -9,12 +11,27 @@ export function AppLayout({
   children: React.ReactNode;
   userName: string;
 }) {
+  const [isNavigationOpen, setIsNavigationOpen] = useState(false);
+
   return (
-    <div className="flex h-screen w-full flex-col overflow-hidden bg-gray-50 md:flex-row">
-      <Sidebar userName={userName} />
-      <div className="flex flex-1 flex-col overflow-hidden">
-        <Header userName={userName} />
-        <main className="flex-1 overflow-y-auto p-4 sm:p-6 lg:p-8">
+    <div
+      className="application-shell"
+      data-app-shell
+    >
+      <Sidebar
+        isOpen={isNavigationOpen}
+        onClose={() => setIsNavigationOpen(false)}
+        userName={userName}
+      />
+      <div className="application-workspace" data-app-content>
+        <Header
+          onMenuClick={() => setIsNavigationOpen(true)}
+          userName={userName}
+        />
+        <main
+          className="application-main"
+          data-app-main
+        >
           {children}
         </main>
       </div>

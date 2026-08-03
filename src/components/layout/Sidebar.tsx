@@ -1,17 +1,28 @@
 "use client";
 
 import Link from "next/link";
+import Image from "next/image";
 import { usePathname } from "next/navigation";
 import { useTransition } from "react";
+import { LayoutDashboard, LogOut, PackageOpen, X } from "lucide-react";
+import brandLogo from "../../../public/brand/logo-pp-transparent.png";
 
 import { logoutAction } from "@/features/auth/actions";
 
 const navigation = [
-  { name: "Dashboard", shortName: "Dashboard", href: "/dashboard", icon: "📊" },
-  { name: "Data PO", shortName: "Data PO", href: "/po", icon: "📦" },
+  { name: "Dashboard", href: "/dashboard", icon: LayoutDashboard },
+  { name: "Data PO", href: "/po", icon: PackageOpen },
 ];
 
-export function Sidebar({ userName }: { userName: string }) {
+export function Sidebar({
+  isOpen,
+  onClose,
+  userName,
+}: {
+  isOpen: boolean;
+  onClose: () => void;
+  userName: string;
+}) {
   const pathname = usePathname();
   const [isPending, startTransition] = useTransition();
 
@@ -22,18 +33,48 @@ export function Sidebar({ userName }: { userName: string }) {
   };
 
   return (
-    <aside className="flex w-full shrink-0 items-stretch bg-slate-900 text-white shadow-xl md:h-full md:w-64 md:flex-col">
-      <div className="flex h-14 shrink-0 items-center bg-slate-950 px-3 md:h-16 md:px-6">
-        <div className="flex items-center gap-3">
-          <span className="flex h-8 w-8 items-center justify-center rounded-lg bg-blue-500 font-bold">
-            SJ
-          </span>
-          <span className="hidden text-lg font-semibold tracking-tight md:inline">Sistem SJ</span>
+    <>
+      <button
+        aria-label="Tutup menu navigasi"
+        className="sidebar-backdrop"
+        data-open={isOpen}
+        onClick={onClose}
+        tabIndex={isOpen ? 0 : -1}
+        type="button"
+      />
+      <aside
+        aria-label="Navigasi utama"
+        className="application-sidebar"
+        data-app-sidebar
+        data-open={isOpen}
+      >
+        <div className="sidebar-brand">
+          <Link href="/dashboard" onClick={onClose}>
+            <span className="sidebar-logo">
+              <Image
+                alt="Logo PP CV. Pramudya Putra"
+                className="sidebar-logo-img"
+                priority
+                src={brandLogo}
+                unoptimized
+              />
+            </span>
+            <span className="sidebar-brand-copy">
+              <strong>Sistem Surat Jalan</strong>
+              <small>CV. Pramudya Putra</small>
+            </span>
+          </Link>
+          <button aria-label="Tutup menu" onClick={onClose} type="button">
+            <X aria-hidden="true" size={20} />
+          </button>
         </div>
-      </div>
 
-      <div className="flex min-w-0 flex-1 items-center md:flex-col md:items-stretch md:overflow-y-auto md:pt-6">
-        <nav className="flex min-w-0 flex-1 overflow-x-auto px-2 md:block md:space-y-1 md:overflow-visible md:px-4">
+        <div className="sidebar-content">
+          <div className="sidebar-nav-heading">
+            <span>Ruang Kerja</span>
+            <small>Operasional pengiriman</small>
+          </div>
+          <nav>
           {navigation.map((item) => {
             const isActive =
               pathname.startsWith(item.href) ||
@@ -41,37 +82,35 @@ export function Sidebar({ userName }: { userName: string }) {
             return (
               <Link
                 aria-current={isActive ? "page" : undefined}
-                className={`flex shrink-0 items-center gap-2 rounded-lg px-3 py-2 text-xs font-medium transition-colors md:gap-3 md:py-2.5 md:text-sm ${
-                  isActive
-                    ? "bg-blue-600 text-white"
-                    : "text-slate-300 hover:bg-slate-800 hover:text-white"
-                }`}
+                data-active={isActive}
                 href={item.href}
                 key={item.name}
+                onClick={onClose}
               >
-                <span aria-hidden="true" className="text-base md:text-xl">{item.icon}</span>
-                {item.shortName}
+                <item.icon aria-hidden="true" size={19} strokeWidth={1.8} />
+                <span>{item.name}</span>
               </Link>
             );
           })}
-        </nav>
+          </nav>
+        </div>
 
-        <div className="flex shrink-0 items-center px-2 md:mt-auto md:block md:p-4">
-          <p className="mb-2 hidden truncate px-3 text-xs text-slate-400 md:block">
-            {userName}
-          </p>
+        <div className="sidebar-footer">
+          <div className="sidebar-user">
+            <span>{userName.slice(0, 1).toLocaleUpperCase("id-ID")}</span>
+            <p><strong>{userName}</strong><small>Administrator</small></p>
+          </div>
           <button
             aria-label="Keluar dari aplikasi"
-            className="flex items-center gap-2 rounded-lg px-3 py-2 text-xs font-medium text-slate-300 transition-colors hover:bg-slate-800 hover:text-white disabled:opacity-50 md:w-full md:gap-3 md:py-2.5 md:text-sm"
             disabled={isPending}
             onClick={handleLogout}
             type="button"
           >
-            <span aria-hidden="true" className="text-base md:text-xl">🚪</span>
-            <span className="hidden md:inline">{isPending ? "Keluar..." : "Keluar"}</span>
+            <LogOut aria-hidden="true" size={18} />
+            <span>{isPending ? "Keluar..." : "Keluar"}</span>
           </button>
         </div>
-      </div>
-    </aside>
+      </aside>
+    </>
   );
 }

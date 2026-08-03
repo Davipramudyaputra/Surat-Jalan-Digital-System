@@ -6,6 +6,7 @@ import { PurchaseOrderSearch } from "@/features/po/components/PurchaseOrderSearc
 import { PurchaseOrderList } from "@/features/po/components/PurchaseOrderList";
 import { attachPOStats } from "@/features/po/services/po-stats";
 import { Prisma } from "@/generated/prisma/client";
+import { Upload, X } from "lucide-react";
 
 export const metadata: Metadata = {
   title: "Data PO - Sistem Surat Jalan",
@@ -87,45 +88,47 @@ export default async function DataPOPage({
   const totalPages = Math.ceil(total / limit);
 
   return (
-    <div className="space-y-6 max-w-7xl mx-auto">
-      <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">
+    <div className="brand-page po-page">
+      <header className="brand-page-header">
         <div>
-          <h1 className="text-2xl font-bold text-gray-900">Data Purchase Order</h1>
-          <p className="mt-1 text-sm text-gray-500">
+          <p className="brand-eyebrow">Manajemen data</p>
+          <h1>Data Purchase Order</h1>
+          <p>
             Kelola PO dan import data surat jalan dari Excel
           </p>
         </div>
         <Link
           href={showUpload ? "/po" : "/po?upload=true"}
-          className="inline-flex justify-center rounded-lg bg-blue-600 px-4 py-2 text-sm font-semibold text-white shadow-sm hover:bg-blue-500"
+          className={showUpload ? "brand-secondary-button" : "brand-primary-button"}
         >
+          {showUpload ? <X aria-hidden="true" size={17} /> : <Upload aria-hidden="true" size={17} />}
           {showUpload ? "Tutup Upload" : "Upload Excel Baru"}
         </Link>
-      </div>
+      </header>
 
       {showUpload && (
-        <div className="bg-white rounded-xl shadow-sm border border-gray-100 p-6">
+        <div className="po-upload-panel">
           <UploadImportForm />
         </div>
       )}
 
-      <div className="bg-white rounded-xl shadow-sm border border-gray-100 overflow-hidden">
-        <div className="p-4 border-b border-gray-100 bg-gray-50/50">
+      <section className="brand-card po-data-card">
+        <div className="po-toolbar">
           <PurchaseOrderSearch defaultValue={q} defaultStatus={status} />
         </div>
 
         <PurchaseOrderList purchaseOrders={purchaseOrdersWithStats} />
 
         {totalPages > 1 && (
-          <div className="px-6 py-4 border-t border-gray-100 flex items-center justify-between">
-            <div className="text-sm text-gray-500">
+          <div className="brand-pagination">
+            <div>
               Menampilkan {skip + 1} sampai {Math.min(skip + limit, total)} dari {total} data
             </div>
-            <div className="flex gap-2">
+            <div>
               {page > 1 && (
                 <Link
                   href={{ pathname: "/po", query: { ...(q ? { q } : {}), ...(status !== "Semua" ? { status } : {}), page: page - 1, limit } }}
-                  className="px-3 py-1 border border-gray-200 rounded text-sm hover:bg-gray-50"
+                  className="brand-secondary-button"
                 >
                   Sebelumnya
                 </Link>
@@ -133,7 +136,7 @@ export default async function DataPOPage({
               {page < totalPages && (
                 <Link
                   href={{ pathname: "/po", query: { ...(q ? { q } : {}), ...(status !== "Semua" ? { status } : {}), page: page + 1, limit } }}
-                  className="px-3 py-1 border border-gray-200 rounded text-sm hover:bg-gray-50"
+                  className="brand-secondary-button"
                 >
                   Selanjutnya
                 </Link>
@@ -141,7 +144,7 @@ export default async function DataPOPage({
             </div>
           </div>
         )}
-      </div>
+      </section>
     </div>
   );
 }

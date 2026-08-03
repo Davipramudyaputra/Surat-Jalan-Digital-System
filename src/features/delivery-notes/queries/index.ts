@@ -87,3 +87,45 @@ export async function getDeliveryNoteById(id: string) {
     }
   });
 }
+
+export async function getDeliveryNoteForPreview(id: string) {
+  return prisma.deliveryNote.findUnique({
+    where: { id },
+    select: {
+      id: true,
+      purchaseOrderId: true,
+      uniqueCode: true,
+      documentNumber: true,
+      documentDate: true,
+      recipientCompanyName: true,
+      branchName: true,
+      vehicleName: true,
+      vehicleNumber: true,
+      additionalPoNumber: true,
+      recipientName: true,
+      printStatus: true,
+      firstPrintedAt: true,
+      lastPrintedAt: true,
+      printCount: true,
+      updatedAt: true,
+      purchaseOrder: {
+        select: {
+          companyCode: true,
+          poNumber: true,
+        },
+      },
+      items: {
+        select: {
+          id: true,
+          quantity: true,
+          unit: true,
+          displayProductName: true,
+          originalProductName: true,
+          description: true,
+          sortOrder: true,
+        },
+        orderBy: [{ sortOrder: "asc" }, { id: "asc" }],
+      },
+    },
+  });
+}

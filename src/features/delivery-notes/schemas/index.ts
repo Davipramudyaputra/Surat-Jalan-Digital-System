@@ -44,3 +44,12 @@ export const deliveryNoteEditSchema = z.object({
 });
 
 export type DeliveryNoteEditInput = z.infer<typeof deliveryNoteEditSchema>;
+
+export const confirmDeliveryNotePrintedSchema = z.object({
+  id: z.string().min(1),
+  expectedUpdatedAt: z.coerce.date(),
+});
+
+export type ConfirmDeliveryNotePrintedInput = z.infer<
+  typeof confirmDeliveryNotePrintedSchema
+>;

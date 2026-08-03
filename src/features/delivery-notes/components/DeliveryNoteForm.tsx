@@ -4,6 +4,17 @@ import { useState, useTransition } from "react";
 import { useRouter } from "next/navigation";
 import { updateDeliveryNoteAction } from "../actions";
 import { DeliveryNoteEditInput } from "../schemas";
+import {
+  CalendarClock,
+  CaseUpper,
+  ChevronDown,
+  ChevronUp,
+  Eye,
+  Plus,
+  Save,
+  Trash2,
+  X,
+} from "lucide-react";
 
 type Item = DeliveryNoteEditInput["items"][number];
 
@@ -96,9 +107,13 @@ export function DeliveryNoteForm({
   };
 
 
-  const handleSubmit = (e: React.FormEvent) => {
+  const handleSubmit = (e: React.FormEvent<HTMLFormElement>) => {
     e.preventDefault();
     setError(null);
+    const submitter = (e.nativeEvent as SubmitEvent)
+      .submitter as HTMLButtonElement | null;
+    const destination =
+      submitter?.value === "preview" ? "preview" : "detail";
 
     // Validate 0 quantity before submitting
     const zeroQuantityItems = formData.items.filter(item => Number(item.quantity) === 0);
@@ -119,148 +134,189 @@ export function DeliveryNoteForm({
 
     const dataToSubmit = { ...formData, items: itemsToSubmit };
 
-    submitForm(dataToSubmit);
+    submitForm(dataToSubmit, destination);
   };
 
 
-  const submitForm = (dataToSubmit: DeliveryNoteEditInput) => {
+  const submitForm = (
+    dataToSubmit: DeliveryNoteEditInput,
+    destination: "detail" | "preview",
+  ) => {
     startTransition(async () => {
       const result = await updateDeliveryNoteAction(dataToSubmit);
       if (result.error) {
         setError(result.error);
       } else {
-        router.push(`/surat-jalan/${dataToSubmit.id}`);
+        router.push(
+          destination === "preview"
+            ? `/surat-jalan/${dataToSubmit.id}/preview`
+            : `/surat-jalan/${dataToSubmit.id}`,
+        );
         // router.refresh() removed in favor of revalidatePath on server
       }
     });
   };
 
   return (
-    <form onSubmit={handleSubmit} className="workspace-card" style={{ display: "flex", flexDirection: "column", gap: "2rem" }}>
-      {error && (
-        <div className="empty-state" style={{ padding: "1rem", backgroundColor: "#fee2e2", color: "#991b1b" }}>
-          {error}
-        </div>
-      )}
+    <form className="brand-card delivery-editor" onSubmit={handleSubmit}>
+      {error ? (
+        <div className="form-message form-message-error" role="alert">{error}</div>
+      ) : null}
 
-      <div>
-        <h2 style={{ marginBottom: "1rem" }}>Informasi Surat</h2>
-        <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: "1rem" }}>
-          <div className="field-group">
-            <label>Nomor Surat Jalan</label>
-            <input type="text" value={formData.documentNumber || ""} onChange={e => handleChange("documentNumber", e.target.value)} />
+      <section className="editor-section" aria-labelledby="document-information-title">
+        <div className="editor-section-heading">
+          <span>01</span>
+          <div><h2 id="document-information-title">Informasi Surat</h2><p>Identitas dokumen dan tanggal pengiriman.</p></div>
+        </div>
+        <div className="editor-grid">
+          <div className="form-field">
+            <label htmlFor="document-number">Nomor Surat Jalan</label>
+            <input className="brand-input" id="document-number" type="text" value={formData.documentNumber || ""} onChange={e => handleChange("documentNumber", e.target.value)} />
           </div>
-          <div className="field-group">
-            <label>Tanggal</label>
-            <input type="date" value={formData.documentDate || ""} onChange={e => handleChange("documentDate", e.target.value)} />
+          <div className="form-field editor-date-field">
+            <div className="field-label-row">
+              <label htmlFor="document-date">Tanggal Surat Jalan</label>
+              <span className={`brand-status ${formData.documentDate ? "brand-status-success" : "brand-status-neutral"}`}>
+                {formData.documentDate ? "Tanggal pilihan" : "Realtime Indonesia"}
+              </span>
+            </div>
+            <input
+              aria-describedby="document-date-help"
+              className="brand-input"
+              id="document-date"
+              type="date"
+              value={formData.documentDate || ""}
+              onChange={e => handleChange("documentDate", e.target.value)}
+            />
+            <p className="field-help" id="document-date-help">
+              Jika diisi, tanggal ini digunakan pada preview dan hasil cetak. Kosongkan untuk memakai tanggal realtime Asia/Jakarta saat mencetak.
+            </p>
+            <button
+              className="inline-neutral-action"
+              disabled={!formData.documentDate || isPending}
+              onClick={() => handleChange("documentDate", "")}
+              type="button"
+            >
+              <CalendarClock aria-hidden="true" size={15} /> Gunakan Tanggal Realtime
+            </button>
           </div>
-          <div className="field-group">
-            <label>Nomor PO <span style={{ color: "red" }}>*</span></label>
-            <input type="text" readOnly value={formData.poNumber} />
+          <div className="form-field">
+            <label htmlFor="document-po">Nomor PO <span className="required-mark">*</span></label>
+            <input className="brand-input" id="document-po" type="text" readOnly value={formData.poNumber} />
             <p className="field-help">Nomor PO diubah melalui halaman Edit PO agar seluruh surat jalan tetap konsisten.</p>
           </div>
         </div>
-      </div>
+      </section>
 
-      <div>
-        <h2 style={{ marginBottom: "1rem" }}>Informasi Penerima</h2>
-        <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: "1rem" }}>
-          <div className="field-group">
-            <label>Perusahaan Penerima <span style={{ color: "red" }}>*</span></label>
-            <input type="text" required value={formData.recipientCompanyName} onChange={e => handleChange("recipientCompanyName", e.target.value)} />
+      <section className="editor-section" aria-labelledby="recipient-information-title">
+        <div className="editor-section-heading">
+          <span>02</span>
+          <div><h2 id="recipient-information-title">Informasi Penerima</h2><p>Tujuan perusahaan, cabang, dan penerima barang.</p></div>
+        </div>
+        <div className="editor-grid">
+          <div className="form-field">
+            <label htmlFor="recipient-company">Perusahaan Penerima <span className="required-mark">*</span></label>
+            <input className="brand-input" id="recipient-company" type="text" required value={formData.recipientCompanyName} onChange={e => handleChange("recipientCompanyName", e.target.value)} />
           </div>
-          <div className="field-group">
-            <label>Nama Cabang <span style={{ color: "red" }}>*</span></label>
-            <input type="text" required value={formData.branchName} onChange={e => handleChange("branchName", e.target.value)} />
+          <div className="form-field">
+            <label htmlFor="recipient-branch">Nama Cabang <span className="required-mark">*</span></label>
+            <input className="brand-input" id="recipient-branch" type="text" required value={formData.branchName} onChange={e => handleChange("branchName", e.target.value)} />
           </div>
-          <div className="field-group">
-            <label>Nama Penerima</label>
-            <input type="text" value={formData.recipientName || ""} onChange={e => handleChange("recipientName", e.target.value)} />
+          <div className="form-field">
+            <label htmlFor="recipient-name">Nama Penerima</label>
+            <input className="brand-input" id="recipient-name" type="text" value={formData.recipientName || ""} onChange={e => handleChange("recipientName", e.target.value)} />
           </div>
         </div>
-      </div>
+      </section>
 
-      <div>
-        <h2 style={{ marginBottom: "1rem" }}>Informasi Pengiriman (Opsional)</h2>
-        <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: "1rem" }}>
-          <div className="field-group">
-            <label>Kendaraan</label>
-            <input type="text" value={formData.vehicleName || ""} onChange={e => handleChange("vehicleName", e.target.value)} />
+      <section className="editor-section" aria-labelledby="shipping-information-title">
+        <div className="editor-section-heading">
+          <span>03</span>
+          <div><h2 id="shipping-information-title">Informasi Pengiriman</h2><p>Data kendaraan dan nomor PO tambahan bersifat opsional.</p></div>
+        </div>
+        <div className="editor-grid">
+          <div className="form-field">
+            <label htmlFor="vehicle-name">Kendaraan</label>
+            <input className="brand-input" id="vehicle-name" type="text" value={formData.vehicleName || ""} onChange={e => handleChange("vehicleName", e.target.value)} />
           </div>
-          <div className="field-group">
-            <label>Nomor Kendaraan</label>
-            <input type="text" value={formData.vehicleNumber || ""} onChange={e => handleChange("vehicleNumber", e.target.value)} />
+          <div className="form-field">
+            <label htmlFor="vehicle-number">Nomor Kendaraan</label>
+            <input className="brand-input" id="vehicle-number" type="text" value={formData.vehicleNumber || ""} onChange={e => handleChange("vehicleNumber", e.target.value)} />
           </div>
-          <div className="field-group">
-            <label>Nomor PO Tambahan</label>
-            <input type="text" value={formData.additionalPoNumber || ""} onChange={e => handleChange("additionalPoNumber", e.target.value)} />
+          <div className="form-field">
+            <label htmlFor="additional-po">Nomor PO Tambahan</label>
+            <input className="brand-input" id="additional-po" type="text" value={formData.additionalPoNumber || ""} onChange={e => handleChange("additionalPoNumber", e.target.value)} />
           </div>
         </div>
-      </div>
+      </section>
 
-      <div>
-        <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: "1rem" }}>
-          <h2>Daftar Barang</h2>
-          <div style={{ display: "flex", gap: "0.5rem" }}>
-            <button type="button" className="secondary-button" onClick={handleUppercaseAll}>Jadikan Semua Kapital</button>
-            <button type="button" className="primary-button" onClick={handleAddItem}>+ Tambah Barang</button>
+      <section className="editor-section editor-items-section" aria-labelledby="items-title">
+        <div className="editor-section-heading editor-items-heading">
+          <span>04</span>
+          <div><h2 id="items-title">Daftar Barang</h2><p>Atur isi dan urutan barang pada dokumen.</p></div>
+          <div className="editor-heading-actions">
+            <button type="button" className="brand-secondary-button" onClick={handleUppercaseAll}>
+              <CaseUpper aria-hidden="true" size={16} /> Jadikan Semua Kapital
+            </button>
+            <button type="button" className="brand-primary-button" onClick={handleAddItem}>
+              <Plus aria-hidden="true" size={16} /> Tambah Barang
+            </button>
           </div>
         </div>
 
-        <div className="table-container">
-          <table className="data-table">
+        <div className="brand-table-wrap">
+          <table className="brand-table editor-table">
             <thead>
               <tr>
-                <th style={{ width: "80px" }}>Urutan</th>
-                <th style={{ width: "100px" }}>Kuantitas <span style={{ color: "red" }}>*</span></th>
-                <th style={{ width: "100px" }}>Satuan</th>
-                <th>Nama Barang <span style={{ color: "red" }}>*</span></th>
-                <th>Keterangan</th>
-                <th style={{ width: "150px" }}>Aksi</th>
+                <th scope="col">Urutan</th>
+                <th scope="col">Kuantitas <span className="required-mark">*</span></th>
+                <th scope="col">Satuan</th>
+                <th scope="col">Nama Barang <span className="required-mark">*</span></th>
+                <th scope="col">Keterangan</th>
+                <th scope="col">Aksi</th>
               </tr>
             </thead>
             <tbody>
               {formData.items.map((item, index) => (
                 <tr key={item.id || `new-${index}`}>
                   <td>
-                    <div style={{ display: "flex", flexDirection: "column" }}>
-                      <button type="button" disabled={index === 0} onClick={() => moveItem(index, "up")}>▲</button>
-                      <button type="button" disabled={index === formData.items.length - 1} onClick={() => moveItem(index, "down")}>▼</button>
+                    <div className="reorder-actions">
+                      <button aria-label={`Pindahkan barang ${index + 1} ke atas`} disabled={index === 0} onClick={() => moveItem(index, "up")} title="Pindahkan ke atas" type="button"><ChevronUp aria-hidden="true" size={16} /></button>
+                      <button aria-label={`Pindahkan barang ${index + 1} ke bawah`} disabled={index === formData.items.length - 1} onClick={() => moveItem(index, "down")} title="Pindahkan ke bawah" type="button"><ChevronDown aria-hidden="true" size={16} /></button>
                     </div>
                   </td>
                   <td>
-                    <input type="number" step="0.001" required value={item.quantity} onChange={e => handleItemChange(index, "quantity", e.target.value)} style={{ width: "100%", padding: "8px", border: "1px solid #d6d9df", borderRadius: "6px" }} />
+                    <input aria-label={`Kuantitas barang ${index + 1}`} className="editor-input" type="number" step="0.001" required value={item.quantity} onChange={e => handleItemChange(index, "quantity", e.target.value)} />
                   </td>
                   <td>
-                    <input type="text" value={item.unit || ""} onChange={e => handleItemChange(index, "unit", e.target.value)} style={{ width: "100%", padding: "8px", border: "1px solid #d6d9df", borderRadius: "6px" }} />
+                    <input aria-label={`Satuan barang ${index + 1}`} className="editor-input" type="text" value={item.unit || ""} onChange={e => handleItemChange(index, "unit", e.target.value)} />
                   </td>
                   <td>
-                    <input type="text" required value={item.displayProductName} onChange={e => handleItemChange(index, "displayProductName", e.target.value)} style={{ width: "100%", padding: "8px", border: "1px solid #d6d9df", borderRadius: "6px", marginBottom: "4px" }} />
-                    <div style={{ display: "flex", gap: "4px" }}>
-                      <button type="button" className="secondary-button" style={{ padding: "2px 4px", fontSize: "10px" }} onClick={() => handleUppercase(index)}>Kapital</button>
-                    </div>
+                    <input aria-label={`Nama barang ${index + 1}`} className="editor-input" type="text" required value={item.displayProductName} onChange={e => handleItemChange(index, "displayProductName", e.target.value)} />
+                    <button className="uppercase-action" onClick={() => handleUppercase(index)} type="button"><CaseUpper aria-hidden="true" size={13} /> Kapital</button>
                   </td>
                   <td>
-                    <input type="text" value={item.description || ""} onChange={e => handleItemChange(index, "description", e.target.value)} style={{ width: "100%", padding: "8px", border: "1px solid #d6d9df", borderRadius: "6px" }} />
+                    <input aria-label={`Keterangan barang ${index + 1}`} className="editor-input" type="text" value={item.description || ""} onChange={e => handleItemChange(index, "description", e.target.value)} />
                   </td>
                   <td>
-                    <button type="button" className="secondary-button" style={{ color: "red", borderColor: "red" }} onClick={() => handleRemoveItem(index)}>Hapus</button>
+                    <button aria-label={`Hapus barang ${index + 1}`} className="remove-item-action" onClick={() => handleRemoveItem(index)} title="Hapus barang" type="button"><Trash2 aria-hidden="true" size={16} /> Hapus</button>
                   </td>
                 </tr>
               ))}
             </tbody>
           </table>
         </div>
-      </div>
+      </section>
 
-
-      <div style={{ display: "flex", justifyContent: "flex-end", gap: "1rem", marginTop: "1rem" }}>
-
-        <button type="button" className="secondary-button" onClick={() => router.back()} disabled={isPending}>
-          Batal
+      <div className="editor-action-bar">
+        <button type="button" className="brand-secondary-button" onClick={() => router.back()} disabled={isPending}>
+          <X aria-hidden="true" size={16} /> Batal
         </button>
-        <button type="submit" className="primary-button" disabled={isPending}>
-          {isPending ? "Menyimpan..." : "Simpan Perubahan"}
+        <button type="submit" className="brand-secondary-button" disabled={isPending} name="destination" value="detail">
+          <Save aria-hidden="true" size={16} /> {isPending ? "Menyimpan..." : "Simpan Perubahan"}
+        </button>
+        <button type="submit" className="brand-primary-button" disabled={isPending} name="destination" value="preview">
+          <Eye aria-hidden="true" size={16} /> {isPending ? "Menyimpan..." : "Simpan & Lihat Preview"}
         </button>
       </div>
     </form>

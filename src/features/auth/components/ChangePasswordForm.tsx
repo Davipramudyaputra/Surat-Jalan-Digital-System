@@ -3,6 +3,7 @@
 import { useActionState } from "react";
 
 import { changePasswordAction } from "../actions";
+import { KeyRound } from "lucide-react";
 
 const initialState = { error: "", success: "" };
 
@@ -13,14 +14,14 @@ export function ChangePasswordForm() {
   );
 
   return (
-    <form action={formAction} className="space-y-5">
+    <form action={formAction} className="brand-form">
       {state.error ? (
-        <p className="rounded-lg border border-red-200 bg-red-50 p-3 text-sm text-red-700" role="alert">
+        <p className="form-message form-message-error" role="alert">
           {state.error}
         </p>
       ) : null}
       {state.success ? (
-        <p className="rounded-lg border border-green-200 bg-green-50 p-3 text-sm text-green-700" role="status">
+        <p className="form-message form-message-success" role="status">
           {state.success}
         </p>
       ) : null}
@@ -29,16 +30,16 @@ export function ChangePasswordForm() {
       <PasswordField autoComplete="new-password" label="Password baru" name="newPassword" />
       <PasswordField autoComplete="new-password" label="Konfirmasi password baru" name="confirmPassword" />
 
-      <p className="text-xs leading-5 text-gray-500">
+      <p className="password-help">
         Gunakan minimal 12 karakter. Setelah password berubah, seluruh session lain akan dicabut.
       </p>
 
       <button
-        className="rounded-lg bg-blue-600 px-4 py-2 text-sm font-semibold text-white hover:bg-blue-700 disabled:cursor-not-allowed disabled:opacity-50"
+        className="brand-primary-button"
         disabled={isPending}
         type="submit"
       >
-        {isPending ? "Menyimpan..." : "Ubah Password"}
+      <KeyRound aria-hidden="true" size={16} /> {isPending ? "Menyimpan..." : "Ubah Password"}
       </button>
     </form>
   );
@@ -54,11 +55,11 @@ function PasswordField({
   name: string;
 }) {
   return (
-    <div className="space-y-2">
-      <label className="block text-sm font-medium text-gray-700" htmlFor={name}>{label}</label>
+    <div className="form-field">
+      <label htmlFor={name}>{label}</label>
       <input
         autoComplete={autoComplete}
-        className="w-full rounded-lg border border-gray-300 px-4 py-2 outline-none focus:border-blue-500 focus:ring-2 focus:ring-blue-500"
+        className="brand-input"
         id={name}
         name={name}
         required

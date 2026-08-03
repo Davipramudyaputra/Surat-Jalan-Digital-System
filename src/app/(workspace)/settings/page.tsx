@@ -11,19 +11,26 @@ export default async function SettingsPage() {
   const session = await requireAdmin();
 
   return (
-    <div className="mx-auto max-w-2xl space-y-6">
-      <div>
-        <h1 className="text-2xl font-bold text-gray-900">Pengaturan Akun</h1>
-        <p className="mt-1 text-sm text-gray-500">
+    <div className="brand-page form-page">
+      <header className="brand-page-header">
+        <div>
+        <p className="brand-eyebrow">Keamanan akun</p>
+        <h1>Pengaturan Akun</h1>
+        <p>
           Kelola keamanan akun admin {session.user.username}.
         </p>
-      </div>
-      <section className="rounded-xl border border-gray-100 bg-white p-6 shadow-sm">
-        <h2 className="text-lg font-semibold text-gray-900">Ubah Password</h2>
-        <p className="mb-6 mt-1 text-sm text-gray-500">
+        </div>
+      </header>
+      <section className="brand-card settings-card">
+        <div className="brand-section-heading"><div>
+        <h2>Ubah Password</h2>
+        <p>
           Password tidak pernah ditampilkan kembali oleh aplikasi.
         </p>
+        </div></div>
+        <div className="settings-form-wrap">
         <ChangePasswordForm />
+        </div>
       </section>
     </div>
   );

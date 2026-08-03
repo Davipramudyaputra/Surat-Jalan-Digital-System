@@ -2,6 +2,9 @@ import { Metadata } from "next";
 import { redirect } from "next/navigation";
 import { LoginForm } from "@/features/auth/components/LoginForm";
 import { getSession } from "@/lib/session";
+import Image from "next/image";
+import { FileCheck2, ShieldCheck, Workflow } from "lucide-react";
+import brandLogo from "../../../public/brand/logo-cv-pramudya-putra.png";
 
 export const metadata: Metadata = {
   title: "Login - Sistem Surat Jalan",
@@ -16,18 +19,35 @@ export default async function LoginPage() {
   }
 
   return (
-    <div className="min-h-screen bg-gray-50 flex flex-col justify-center py-12 sm:px-6 lg:px-8">
-      <div className="sm:mx-auto sm:w-full sm:max-w-md">
-        <div className="flex justify-center mb-6">
-          <div className="w-16 h-16 bg-blue-600 rounded-2xl flex items-center justify-center transform rotate-3">
-            <span className="text-white text-2xl font-bold -rotate-3">SJ</span>
+    <main className="login-page">
+      <section className="login-brand-panel" aria-label="Tentang aplikasi">
+        <div className="login-corner" aria-hidden="true" />
+        <div className="login-brand-content">
+          <Image
+            alt="Logo CV. Pramudya Putra"
+            className="login-logo"
+            height={170}
+            priority
+            src={brandLogo}
+            width={430}
+          />
+          <p className="login-kicker">Sistem internal perusahaan</p>
+          <h2>Pengiriman yang lebih tertib, jelas, dan siap dicetak.</h2>
+          <p className="login-brand-description">
+            Kelola data Purchase Order dan Surat Jalan dalam satu ruang kerja
+            operasional CV. Pramudya Putra.
+          </p>
+          <div className="login-feature-list">
+            <span><Workflow aria-hidden="true" size={19} /> Alur data terpusat</span>
+            <span><FileCheck2 aria-hidden="true" size={19} /> Dokumen siap cetak</span>
+            <span><ShieldCheck aria-hidden="true" size={19} /> Akses admin terlindungi</span>
           </div>
         </div>
-      </div>
-
-      <div className="sm:mx-auto sm:w-full sm:max-w-md flex justify-center px-4">
+      </section>
+      <section className="login-form-panel">
         <LoginForm />
-      </div>
-    </div>
+        <p className="login-footer">Sistem Surat Jalan Digital · CV. Pramudya Putra</p>
+      </section>
+    </main>
   );
 }

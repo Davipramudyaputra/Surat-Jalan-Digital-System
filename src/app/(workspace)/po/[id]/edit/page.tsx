@@ -2,6 +2,8 @@ import type { Metadata } from "next";
 import { notFound } from "next/navigation";
 import { prisma } from "@/lib/prisma";
 import { PurchaseOrderEditForm } from "@/features/po/components/PurchaseOrderEditForm";
+import Link from "next/link";
+import { ArrowLeft } from "lucide-react";
 
 export const metadata: Metadata = {
   title: "Edit PO - Sistem Surat Jalan",
@@ -24,17 +26,23 @@ export default async function PurchaseOrderEditPage({
   }
 
   return (
-    <div className="space-y-6 max-w-3xl mx-auto">
-      <div>
-        <h1 className="text-2xl font-bold text-gray-900">Edit Purchase Order</h1>
-        <p className="mt-1 text-sm text-gray-500">
+    <div className="brand-page form-page">
+      <header className="brand-page-header">
+        <div>
+        <Link className="detail-back-link" href={`/po/${po.id}`}>
+          <ArrowLeft aria-hidden="true" size={15} /> Kembali ke Detail PO
+        </Link>
+        <p className="brand-eyebrow">Perbarui data</p>
+        <h1>Edit Purchase Order</h1>
+        <p>
           Ubah informasi Purchase Order. Perubahan identitas dapat mempengaruhi status cetak surat jalan.
         </p>
-      </div>
+        </div>
+      </header>
 
-      <div className="bg-white rounded-xl shadow-sm border border-gray-100 p-6">
+      <section className="brand-card form-card">
         <PurchaseOrderEditForm po={po} />
-      </div>
+      </section>
     </div>
   );
 }

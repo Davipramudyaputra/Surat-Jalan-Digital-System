@@ -7,6 +7,13 @@ import { deliveryNoteSearchSchema } from "@/features/delivery-notes/schemas";
 import { SearchAndFilter } from "@/features/delivery-notes/components/SearchAndFilter";
 import { attachSinglePOStats } from "@/features/po/services/po-stats";
 import { DeletePODialog } from "@/features/po/components/DeletePODialog";
+import {
+  ArrowLeft,
+  Edit3,
+  Eye,
+  FileText,
+  PackageOpen,
+} from "lucide-react";
 
 export const metadata: Metadata = {
   title: "Detail PO - Sistem Surat Jalan",
@@ -46,27 +53,24 @@ export default async function PurchaseOrderDetailPage({
   const totalItemCount = poWithStats.stats.totalItemCount;
 
   return (
-    <div className="space-y-6 max-w-7xl mx-auto">
-      <nav aria-label="Breadcrumb" className="text-sm text-gray-500">
-        <Link className="hover:text-blue-700" href="/dashboard">Dashboard</Link>
-        <span className="mx-2">/</span>
-        <Link className="hover:text-blue-700" href="/po">Data PO</Link>
-        <span className="mx-2">/</span>
-        <span aria-current="page" className="text-gray-900">{po.poNumber}</span>
-      </nav>
-      <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">
+    <div className="brand-page po-detail-page">
+      <header className="brand-page-header po-detail-header">
         <div>
-          <p className="text-sm font-medium text-blue-600 mb-1">{po.companyCode}</p>
-          <h1 className="text-2xl font-bold text-gray-900">{po.poNumber}</h1>
-          <p className="mt-1 text-sm text-gray-500">
+          <Link className="detail-back-link" href="/po">
+            <ArrowLeft aria-hidden="true" size={15} /> Kembali ke Data PO
+          </Link>
+          <p className="brand-eyebrow">{po.companyCode} · Detail Purchase Order</p>
+          <h1>{po.poNumber}</h1>
+          <p>
             {po.companyName} {po.period ? `— Periode: ${po.period}` : ""}
           </p>
         </div>
-        <div className="flex gap-2">
+        <div className="detail-header-actions">
           <Link
             href={`/po/${po.id}/edit`}
-            className="inline-flex justify-center rounded-lg bg-white px-4 py-2 text-sm font-semibold text-gray-900 shadow-sm ring-1 ring-inset ring-gray-300 hover:bg-gray-50"
+            className="brand-secondary-button"
           >
+            <Edit3 aria-hidden="true" size={16} />
             Edit PO
           </Link>
           <DeletePODialog props={{
@@ -82,135 +86,131 @@ export default async function PurchaseOrderDetailPage({
             expectedUpdatedAt: po.updatedAt.toISOString(),
           }} />
         </div>
-      </div>
+      </header>
 
-      {/* Ringkasan Statistik Pencetakan */}
-      <div className="bg-white rounded-xl shadow-sm border border-gray-100 p-6">
-        <h2 className="text-lg font-semibold text-gray-900 mb-4">Ringkasan Pencetakan</h2>
-        <div className="grid grid-cols-2 md:grid-cols-5 gap-4 mb-4">
+      <section className="brand-card po-summary-card">
+        <div className="brand-section-heading">
+          <div><h2>Ringkasan Pencetakan</h2><p>Status seluruh Surat Jalan pada PO ini.</p></div>
+          <span className={`brand-status ${
+            poWithStats.stats.status === "Selesai" ? "brand-status-success" :
+            poWithStats.stats.status === "Dalam Proses" ? "brand-status-progress" :
+            poWithStats.stats.status === "Belum Dimulai" ? "brand-status-warning" :
+            "brand-status-neutral"
+          }`}>{poWithStats.stats.status}</span>
+        </div>
+        <div className="po-summary-grid">
           <div>
-            <p className="text-sm font-medium text-gray-500">Total SJ</p>
-            <p className="mt-1 text-xl font-semibold text-gray-900">{poWithStats.stats.totalCount}</p>
+            <span>Total SJ</span><strong>{poWithStats.stats.totalCount}</strong>
           </div>
           <div>
-            <p className="text-sm font-medium text-gray-500">Sudah Dicetak</p>
-            <p className="mt-1 text-xl font-semibold text-green-700">{poWithStats.stats.printedCount} ({poWithStats.stats.printedPercentage}%)</p>
+            <span>Sudah Dicetak</span><strong>{poWithStats.stats.printedCount}</strong><small>{poWithStats.stats.printedPercentage}%</small>
           </div>
           <div>
-            <p className="text-sm font-medium text-gray-500">Belum Dicetak</p>
-            <p className="mt-1 text-xl font-semibold text-orange-600">{poWithStats.stats.notPrintedCount} ({poWithStats.stats.notPrintedPercentage}%)</p>
+            <span>Belum Dicetak</span><strong>{poWithStats.stats.notPrintedCount}</strong><small>{poWithStats.stats.notPrintedPercentage}%</small>
           </div>
           <div>
-            <p className="text-sm font-medium text-gray-500">Total Item</p>
-            <p className="mt-1 text-xl font-semibold text-gray-900">{totalItemCount}</p>
-          </div>
-          <div>
-            <p className="text-sm font-medium text-gray-500">Status</p>
-            <p className="mt-1">
-              <span className={`inline-flex px-2 py-1 text-xs font-semibold rounded-full ${
-                poWithStats.stats.status === "Selesai" ? "bg-green-100 text-green-800" :
-                poWithStats.stats.status === "Dalam Proses" ? "bg-blue-100 text-blue-800" :
-                poWithStats.stats.status === "Belum Dimulai" ? "bg-orange-100 text-orange-800" :
-                "bg-gray-100 text-gray-800"
-              }`}>
-                {poWithStats.stats.status}
-              </span>
-            </p>
+            <span>Total Item</span><strong>{totalItemCount}</strong>
           </div>
         </div>
-        <div>
-          <div className="flex justify-between text-xs mb-1">
-            <span className="font-medium text-gray-700">Progres Keseluruhan</span>
-            <span className="font-medium text-gray-700">{poWithStats.stats.printedPercentage}%</span>
+        <div className="po-summary-progress">
+          <div>
+            <span>Progres Keseluruhan</span>
+            <strong>{poWithStats.stats.printedPercentage}%</strong>
           </div>
           <div
-            className="w-full bg-gray-200 rounded-full h-2.5 overflow-hidden"
+            className="brand-progress"
             role="progressbar"
             aria-valuenow={poWithStats.stats.printedPercentage}
             aria-valuemin={0}
             aria-valuemax={100}
             aria-label={`${poWithStats.stats.printedPercentage}% selesai`}
           >
-            <div className="bg-blue-600 h-2.5 rounded-full transition-all duration-500" style={{ width: `${poWithStats.stats.printedPercentage}%` }}></div>
+            <span style={{ width: `${poWithStats.stats.printedPercentage}%` }} />
           </div>
         </div>
-      </div>
+      </section>
 
-      <section className="bg-white rounded-xl shadow-sm border border-gray-100 overflow-hidden">
-        <div className="p-6 border-b border-gray-100 bg-gray-50/50">
-          <div className="flex justify-between items-center mb-4">
+      <section className="brand-card po-notes-card">
+        <div className="po-notes-toolbar">
+          <div className="brand-section-heading">
             <div>
-              <h2 className="text-lg font-semibold text-gray-900">Surat Jalan ({po._count.deliveryNotes})</h2>
-              <p className="text-sm text-gray-500">Cari dan kelola surat jalan dalam PO ini.</p>
+              <h2>Surat Jalan ({po._count.deliveryNotes})</h2>
+              <p>Cari dan kelola Surat Jalan dalam PO ini.</p>
             </div>
+            <span className="list-icon"><FileText aria-hidden="true" size={17} /></span>
           </div>
           <SearchAndFilter initialParams={searchConfig} />
         </div>
 
         {deliveryNotes.length === 0 ? (
-          <div className="p-12 text-center">
-            <h3 className="text-sm font-semibold text-gray-900">Data tidak ditemukan</h3>
-            <p className="mt-1 text-sm text-gray-500">
+          <div className="brand-empty-state"><div>
+            <span className="empty-icon-tile"><PackageOpen aria-hidden="true" size={22} /></span>
+            <h3>Data tidak ditemukan</h3>
+            <p>
               Tidak ada surat jalan yang cocok dengan pencarian Anda.
             </p>
-          </div>
+          </div></div>
         ) : (
-          <div className="overflow-x-auto">
-            <table className="min-w-full divide-y divide-gray-200">
-              <thead className="bg-gray-50">
+          <div className="brand-table-wrap">
+            <table className="brand-table delivery-note-list-table">
+              <thead>
                 <tr>
-                  <th scope="col" className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                  <th scope="col">
                     Kode Unik
                   </th>
-                  <th scope="col" className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                    Cabang
-                  </th>
-                  <th scope="col" className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                  <th scope="col">
                     Nomor Surat Jalan
                   </th>
-                  <th scope="col" className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                  <th scope="col">
+                    Cabang
+                  </th>
+                  <th scope="col">
                     Status
                   </th>
-                  <th scope="col" className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                  <th scope="col">
                     Diperbarui
                   </th>
-                  <th scope="col" className="relative px-6 py-3">
+                  <th scope="col">
                     <span className="sr-only">Aksi</span>
                   </th>
                 </tr>
               </thead>
-              <tbody className="bg-white divide-y divide-gray-200">
+              <tbody>
                 {deliveryNotes.map((dn) => (
-                  <tr key={dn.id} className="hover:bg-gray-50">
-                    <td className="px-6 py-4 whitespace-nowrap text-sm font-medium text-gray-900">
+                  <tr key={dn.id}>
+                    <td className="po-primary-cell">
                       {dn.uniqueCode}
                     </td>
-                    <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-700">
+                    <td>
                       {dn.documentNumber || "-"}
                     </td>
-                    <td className="px-6 py-4 whitespace-nowrap">
-                      <div className="text-sm text-gray-900">{dn.branchName}</div>
-                      <div className="text-xs text-gray-500">{dn._count.items} barang</div>
+                    <td>
+                      <div className="po-primary-cell">{dn.branchName}</div>
+                      <div className="po-secondary-cell">{dn._count.items} barang</div>
                     </td>
-                    <td className="px-6 py-4 whitespace-nowrap">
-                      <span className={`px-2 inline-flex text-xs leading-5 font-semibold rounded-full ${
+                    <td>
+                      <span className={`brand-status ${
                         dn.printStatus === "PRINTED"
-                          ? "bg-green-100 text-green-800"
-                          : "bg-gray-100 text-gray-800"
+                          ? "brand-status-success"
+                          : "brand-status-neutral"
                       }`}>
                         {dn.printStatus === "PRINTED" ? "Sudah Dicetak" : "Belum Dicetak"}
                       </span>
                     </td>
-                    <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
+                    <td className="po-date-cell">
                       {new Date(dn.updatedAt).toLocaleDateString("id-ID", {
                         day: "numeric", month: "short", year: "numeric"
                       })}
                     </td>
-                    <td className="px-6 py-4 whitespace-nowrap text-right text-sm font-medium space-x-3">
-                      <button className="text-gray-400 cursor-not-allowed font-medium" disabled title="Tersedia pada Phase 5">Cetak</button>
-                      <Link href={`/surat-jalan/${dn.id}`} className="text-blue-600 hover:text-blue-900">
+                    <td>
+                      <div className="table-actions">
+                      <Link href={`/surat-jalan/${dn.id}/preview`} className="po-open-link">
+                        <Eye aria-hidden="true" size={14} /> Preview
+                      </Link>
+                      <Link href={`/surat-jalan/${dn.id}`} className="po-open-link">
                         Buka
                       </Link>
+                      </div>
                     </td>
                   </tr>
                 ))}
@@ -220,21 +220,21 @@ export default async function PurchaseOrderDetailPage({
         )}
 
         {meta.totalPages > 1 && (
-          <div className="px-6 py-4 border-t border-gray-100 flex items-center justify-between">
-            <div className="text-sm text-gray-500">
+          <div className="brand-pagination">
+            <div>
               Halaman {meta.page} dari {meta.totalPages}
             </div>
-            <div className="flex gap-2">
+            <div>
               <Link
                 href={`/po/${id}?page=${meta.page - 1}&limit=${meta.limit}&q=${encodeURIComponent(searchConfig.q || "")}&status=${searchConfig.status}`}
-                className={`px-3 py-1 border border-gray-200 rounded text-sm ${meta.page <= 1 ? "opacity-50 pointer-events-none" : "hover:bg-gray-50"}`}
+                className={`brand-secondary-button ${meta.page <= 1 ? "pagination-disabled" : ""}`}
                 aria-disabled={meta.page <= 1}
               >
                 Sebelumnya
               </Link>
               <Link
                 href={`/po/${id}?page=${meta.page + 1}&limit=${meta.limit}&q=${encodeURIComponent(searchConfig.q || "")}&status=${searchConfig.status}`}
-                className={`px-3 py-1 border border-gray-200 rounded text-sm ${meta.page >= meta.totalPages ? "opacity-50 pointer-events-none" : "hover:bg-gray-50"}`}
+                className={`brand-secondary-button ${meta.page >= meta.totalPages ? "pagination-disabled" : ""}`}
                 aria-disabled={meta.page >= meta.totalPages}
               >
                 Selanjutnya

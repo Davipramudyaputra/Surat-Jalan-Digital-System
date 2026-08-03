@@ -3,21 +3,48 @@
 import { usePathname } from "next/navigation";
 import Link from "next/link";
 import React from "react";
+import { ChevronRight, Home, Menu, UserRound } from "lucide-react";
 
-export function Header({ userName }: { userName: string }) {
+const pathLabels: Record<string, string> = {
+  dashboard: "Dashboard",
+  po: "Data PO",
+  "surat-jalan": "Surat Jalan",
+  edit: "Edit",
+  preview: "Preview",
+  settings: "Pengaturan",
+};
+
+export function Header({
+  onMenuClick,
+  userName,
+}: {
+  onMenuClick: () => void;
+  userName: string;
+}) {
   const pathname = usePathname();
   const paths = pathname.split("/").filter(Boolean);
 
   return (
-    <header className="sticky top-0 z-10 flex h-16 shrink-0 items-center gap-x-4 border-b border-gray-200 bg-white px-4 shadow-sm sm:gap-x-6 sm:px-6 lg:px-8">
-      <div className="flex flex-1 gap-x-4 self-stretch lg:gap-x-6">
-        <div className="flex min-w-0 flex-1 items-center overflow-hidden">
-          <nav className="min-w-0 overflow-x-auto" aria-label="Breadcrumb">
-            <ol role="list" className="flex w-max items-center space-x-2">
+    <header
+      className="application-header"
+      data-app-header
+    >
+      <button
+        aria-label="Buka menu navigasi"
+        className="header-menu-button"
+        onClick={onMenuClick}
+        type="button"
+      >
+        <Menu aria-hidden="true" size={20} />
+      </button>
+      <div className="header-inner">
+        <div className="header-breadcrumb-wrap">
+          <nav className="header-breadcrumb" aria-label="Breadcrumb">
+            <ol role="list">
               <li>
-                <div>
-                  <Link href="/dashboard" className="text-gray-400 hover:text-gray-500">
-                    <span className="text-xl">🏠</span>
+                <div className="breadcrumb-home">
+                  <Link href="/dashboard" aria-label="Dashboard">
+                    <Home aria-hidden="true" size={17} />
                     <span className="sr-only">Home</span>
                   </Link>
                 </div>
@@ -26,19 +53,16 @@ export function Header({ userName }: { userName: string }) {
                 const isLast = index === paths.length - 1;
                 const href = `/${paths.slice(0, index + 1).join("/")}`;
 
-                // Exclude some common path slugs from being capitalized nicely or just capitalize it
-                const title = path.charAt(0).toUpperCase() + path.slice(1).replace(/-/g, " ");
+                const title = pathLabels[path] ?? path;
 
                 return (
                   <React.Fragment key={path}>
                     <li>
-                      <div className="flex items-center">
-                        <span className="text-gray-300 text-sm mx-2">/</span>
+                      <div className="breadcrumb-item">
+                        <ChevronRight aria-hidden="true" size={14} />
                         <Link
                           href={href}
-                          className={`text-sm font-medium ${
-                            isLast ? "text-gray-700" : "text-gray-500 hover:text-gray-700"
-                          }`}
+                          data-current={isLast}
                           aria-current={isLast ? "page" : undefined}
                         >
                           {title}
@@ -51,14 +75,16 @@ export function Header({ userName }: { userName: string }) {
             </ol>
           </nav>
         </div>
-        <div className="hidden items-center gap-x-4 sm:flex lg:gap-x-6">
-          <div className="flex items-center gap-x-4">
-            <Link className="text-sm font-semibold leading-6 text-gray-900 hover:text-blue-700" href="/settings">
-              {userName}
-            </Link>
-            <div className="h-8 w-8 rounded-full bg-blue-100 flex items-center justify-center text-blue-700 font-bold">
+        <div className="header-user">
+          <div className="header-user-copy">
+            <span>Administrator</span>
+            <Link href="/settings">{userName}</Link>
+          </div>
+          <div className="header-avatar" aria-hidden="true">
+            <UserRound size={16} />
+            <span className="sr-only">
               {userName.slice(0, 1).toLocaleUpperCase("id-ID")}
-            </div>
+            </span>
           </div>
         </div>
       </div>

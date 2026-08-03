@@ -4,6 +4,7 @@ import { notFound } from "next/navigation";
 import { getDeliveryNoteById } from "@/features/delivery-notes/queries";
 import { DeliveryNoteForm } from "@/features/delivery-notes/components/DeliveryNoteForm";
 import { DeliveryNoteEditInput } from "@/features/delivery-notes/schemas";
+import { ArrowLeft } from "lucide-react";
 
 export const metadata: Metadata = {
   title: "Surat Jalan - Edit",
@@ -45,20 +46,20 @@ export default async function DeliveryNoteEditPage({
   };
 
   return (
-    <div className="page-stack">
-      <section className="page-heading" aria-labelledby="page-title">
+    <div className="brand-page delivery-edit-page">
+      <header className="brand-page-header" aria-labelledby="page-title">
         <div>
-          <p className="eyebrow">
-            <Link href={`/po/${deliveryNote.purchaseOrderId}`}>&larr; PO</Link> /{" "}
-            <Link href={`/surat-jalan/${id}`}>Kembali ke Detail</Link>
-          </p>
+          <Link className="detail-back-link" href={`/surat-jalan/${id}`}>
+            <ArrowLeft aria-hidden="true" size={15} /> Kembali ke Detail
+          </Link>
+          <p className="brand-eyebrow">{deliveryNote.uniqueCode} · Form editor</p>
           <h1 id="page-title">Edit Surat Jalan</h1>
-          <p className="page-description">
+          <p>
             Ubah data surat jalan. Menyimpan perubahan data akan me-reset status
             cetak menjadi Belum Dicetak apabila dokumen sebelumnya sudah dicetak.
           </p>
         </div>
-      </section>
+      </header>
 
       <DeliveryNoteForm initialData={initialData} />
     </div>
