@@ -1,156 +1,212 @@
 # Sistem Surat Jalan
 
 Sistem Surat Jalan adalah aplikasi web internal CV. Pramudya Putra untuk
-mengubah data Purchase Order menjadi surat jalan yang mudah dicari, diperiksa,
-dan dicetak.
+mengubah file Purchase Order Excel menjadi data surat jalan per cabang.
 
-Project saat ini berada pada **Phase 1 — Fondasi aplikasi dan database**.
-Halaman dasar, koneksi PostgreSQL, Prisma, dan health check telah disiapkan.
-Fitur upload dan pemrosesan Excel belum tersedia pada fase ini.
-
+Project saat ini berada pada **Phase 3 — Daftar, Pencarian, Status, Detail, dan Edit Data Surat Jalan**. Upload `.xls`/`.xlsx`, penyimpanan transaksional, daftar surat jalan, pencarian berdasarkan kode/PO/cabang, detail surat jalan, serta form edit surat jalan telah tersedia. Pencetakan surat jalan ke PDF tetap menjadi scope Phase 4.
 ## Prasyarat
 
-Pastikan perangkat telah memiliki:
-
-- Node.js 22.12 atau lebih baru.
-- npm.
-- Docker Desktop atau Docker Engine dengan Docker Compose.
-- Git untuk melakukan clone repository.
+- Node.js 22.12 atau lebih baru
+- npm
+- Docker Desktop atau Docker Engine dengan Docker Compose
+- Git
 
 ## Menyiapkan project
-
-Clone repository dan masuk ke directory project:
 
 ```bash
 git clone https://github.com/Davipramudyaputra/Surat-Jalan-Digital-System.git
 cd Surat-Jalan-Digital-System
-```
-
-Salin file contoh environment:
-
-```bash
 cp .env.example .env
-```
-
-Buka `.env`, lalu ganti password contoh dengan password khusus local
-development. Pastikan nilai `POSTGRES_DB`, `POSTGRES_USER`,
-`POSTGRES_PASSWORD`, `POSTGRES_PORT`, dan `DATABASE_URL` tetap konsisten.
-
-Nilai pada `.env.example` hanya contoh local development dan bukan rekomendasi
-credential production.
-
-Instal dependency:
-
-```bash
 npm install
 ```
 
-## Menjalankan PostgreSQL
+Buka `.env`, lalu ganti password contoh dengan password khusus local
+development. Nilai `POSTGRES_DB`, `POSTGRES_USER`, `POSTGRES_PASSWORD`,
+`POSTGRES_PORT`, dan `DATABASE_URL` harus tetap konsisten.
 
-Jalankan database:
+Jangan commit `.env`. Nilai dalam `.env.example` hanya contoh lokal, bukan
+credential production.
+
+## Menjalankan PostgreSQL dan migration
 
 ```bash
 docker compose up -d
-```
-
-Periksa status container:
-
-```bash
 docker compose ps
+npm run prisma:migrate
+npm run prisma:generate
 ```
 
-Lihat log PostgreSQL jika diperlukan:
+Migration domain membuat tabel:
 
-```bash
-docker compose logs postgres
-```
+- `Upload`
+- `PurchaseOrder`
+- `DeliveryNote`
+- `DeliveryNoteItem`
 
 Data PostgreSQL disimpan pada named volume
-`surat_jalan_postgres_data`, sehingga tetap tersedia ketika container
-dihentikan.
+`surat_jalan_postgres_data`.
 
-> Jangan menjalankan `docker compose down -v` jika data local masih diperlukan.
-> Opsi `-v` akan menghapus named volume beserta datanya.
+> Jangan menjalankan `docker compose down -v` bila data lokal masih
+> diperlukan. Opsi `-v` menghapus named volume beserta data di dalamnya.
 
-## Menyiapkan Prisma
-
-Validasi konfigurasi dan generate Prisma Client:
+Untuk menghentikan dan menjalankan kembali database tanpa menghapus data:
 
 ```bash
-npx prisma validate
-npx prisma generate
+docker compose stop
+docker compose start
 ```
 
-Schema Phase 1 sengaja belum memiliki model bisnis. Model Purchase Order,
-Surat Jalan, dan item akan dibuat pada Phase 2.
-
 ## Menjalankan aplikasi
-
-Jalankan development server:
 
 ```bash
 npm run dev
 ```
 
-Buka [http://localhost:3000](http://localhost:3000). Route utama akan
-mengarahkan browser ke halaman Surat Jalan.
+Buka [http://localhost:3000](http://localhost:3000).
 
-Route yang tersedia:
+Route Phase 3:
 
-- `/surat-jalan`
-- `/upload`
-- `/api/health`
+- `/login` — login admin internal
+- `/dashboard` — ringkasan PO dan progres pencetakan
+- `/po` — upload Excel, preview/konfirmasi, serta daftar PO
+- `/po/[id]` — detail satu PO dan surat jalannya
+- `/upload` — redirect kompatibilitas ke `/po?upload=true`
+- `/surat-jalan` — daftar dan pencarian surat jalan dengan paginasi
+- `/surat-jalan/[id]` — halaman detail surat jalan
+- `/surat-jalan/[id]/edit` — form edit surat jalan
+- `/api/imports` — endpoint `POST multipart/form-data`
+- `/api/health` — health check aplikasi dan PostgreSQL
 
-Periksa kesehatan aplikasi dan database:
+## Menggunakan upload Excel
+
+1. Login, lalu buka `/po`.
+2. Tarik file ke area upload atau pilih melalui file picker.
+3. Pilih maksimal 10 file.
+4. Klik **Review Data PO** dan periksa preview tanpa perubahan database.
+5. Klik **Import Data PO** untuk mengonfirmasi penyimpanan.
+6. Periksa hasil per file, jumlah PO, cabang, item, sheet, confidence,
+   warning, dan error.
+
+## Provisioning admin
+
+Isi `ADMIN_USERNAME` dan `ADMIN_PASSWORD` (minimal 12 karakter) melalui
+environment yang aman, lalu jalankan `npm run admin:provision`. Script tidak
+memiliki username/password default dan tidak mencetak password.
+
+Ketentuan awal:
+
+- Format: `.xls` dan `.xlsx`
+- Ukuran maksimal: 10 MB per file
+- Jumlah maksimal: 10 file per request
+- Satu request dapat berisi satu atau beberapa file
+
+Setiap file diproses secara independen. Kegagalan satu file tidak membatalkan
+file lain, tetapi seluruh perubahan bisnis untuk satu file selalu berhasil
+bersama-sama atau rollback bersama-sama.
+
+## Parser adaptif
+
+File sample bukan template permanen. Parser tidak mengandalkan nama sheet,
+nomor baris header, huruf kolom cabang, jumlah produk, atau lokasi total yang
+tetap.
+
+Pipeline akan:
+
+1. Memeriksa semua worksheet dan visibility.
+2. Mencari kandidat header berdasarkan alias nomor dan cabang.
+3. Mengklasifikasikan kolom produk dari header serta pola quantity.
+4. Menolak kandidat sheet/header yang ambigu.
+5. Mengekstrak kode perusahaan, nomor PO, dan periode dari area metadata.
+6. Mengubah matrix cabang × produk menjadi data surat jalan dan item.
+7. Memvalidasi hasil dengan Zod sebelum membuka transaction database.
+
+Detail teknis tersedia di
+[`docs/technical/excel-import.md`](docs/technical/excel-import.md).
+
+## Re-import dan duplicate
+
+- SHA-256 dipakai untuk mengenali file identik.
+- File identik dicatat sebagai `DUPLICATE` dan tidak menggandakan record
+  bisnis.
+- PO yang sama dikenali melalui `companyCode + normalizedPoNumber`.
+- Cabang dikenali melalui `purchaseOrderId + normalizedBranchName`.
+- Item dikenali melalui `deliveryNoteId + normalizedProductName`.
+- Item pada cabang yang muncul dalam file terbaru disinkronkan.
+- Cabang lama yang tidak ada dalam file terbaru tetap dipertahankan dan
+  menghasilkan warning karena file mungkin hanya partial update.
+- Cabang yang berubah kembali ke status `NOT_PRINTED`.
+- Cabang yang tidak berubah mempertahankan status cetaknya.
+
+## Menjalankan test
+
+Unit, variation, parser, dan acceptance fixture:
 
 ```bash
-curl http://localhost:3000/api/health
+npm test
 ```
 
-Response sehat:
+Acceptance fixture saja:
 
-```json
-{
-  "status": "ok",
-  "application": "ok",
-  "database": "ok"
-}
+```bash
+npm run test:sample
 ```
 
-Jika database tidak tersedia, endpoint memberikan HTTP 503 dengan response aman
-tanpa credential atau stack trace.
+Database verification membutuhkan PostgreSQL sehat dan migration sudah
+diterapkan:
+
+```bash
+npm run verify:sample
+```
+
+Verification database akan:
+
+- Meng-import fixture acceptance.
+- Memastikan 1 PO, 92 surat jalan, dan 462 item tersedia.
+- Meng-import file identik kembali.
+- Memastikan business record tidak bertambah.
+- Menguji update PO berbeda secara idempotent.
+- Menguji reset/preservation status dan preservation cabang absent.
+
+Fixture synthetic re-import dibersihkan secara terbatas setelah test. Data
+fixture acceptance utama tidak dihapus.
 
 ## Validasi project
 
-Jalankan lint dan production build:
-
 ```bash
 npm run lint
-npm run build
-```
-
-Type checking juga dapat dijalankan terpisah:
-
-```bash
 npm run typecheck
+npm test
+npm run build
+npm run prisma:format
+npm run prisma:validate
+npm run prisma:generate
+docker compose config
+docker compose ps
 ```
 
-## Menghentikan database
+## Error umum
 
-Hentikan container tanpa menghapus data:
+- **Format file harus .xls atau .xlsx** — pilih extension yang didukung.
+- **Ukuran file melebihi batas** — pastikan file maksimal 10 MB.
+- **Isi file tidak sesuai format** — extension dan signature workbook tidak
+  cocok.
+- **Sheet data utama tidak ditemukan** — workbook tidak memiliki kombinasi
+  header nomor, cabang, produk, dan row quantity yang cukup.
+- **Struktur Excel ambigu** — lebih dari satu sheet/header memiliki confidence
+  yang hampir sama.
+- **Nomor PO tidak ditemukan** — area metadata workbook tidak memiliki
+  informasi PO yang dapat dikenali.
+- **Kuantitas tidak valid** — nilai negatif atau teks non-angka harus
+  diperbaiki pada file sumber.
+- **File yang sama sudah pernah di-import** — hasil bisnis lama dipertahankan
+  tanpa duplicate.
+- **Database unavailable** — periksa `docker compose ps` dan `/api/health`.
 
-```bash
-docker compose stop
-```
+Pesan API tidak mengembalikan stack trace, SQL, URL database, path internal,
+atau credential.
 
-Jalankan kembali:
+## Batas Phase 3
 
-```bash
-docker compose start
-```
-
-## Batas Phase 1
-
-Area Upload Excel pada UI masih berupa placeholder yang jujur. Aplikasi belum
-membaca, memvalidasi, atau menyimpan file `.xls` dan `.xlsx`. Fitur import Excel
-adaptif dan schema database bisnis dijadwalkan pada Phase 2.
+Phase 3 sudah menyediakan autentikasi admin, Dashboard, workspace Data PO,
+preview/konfirmasi import, detail/edit, dan penghapusan PO yang aman. Preview
+A4 final, Print, serta PDF tetap berada di phase berikutnya.
