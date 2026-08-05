@@ -2,6 +2,7 @@ import type { Metadata } from "next";
 import { notFound } from "next/navigation";
 import { prisma } from "@/lib/prisma";
 import { PurchaseOrderEditForm } from "@/features/po/components/PurchaseOrderEditForm";
+import { ACTIVE_PO_FILTER } from "@/features/soft-delete/active";
 import Link from "next/link";
 import { ArrowLeft } from "lucide-react";
 
@@ -16,8 +17,8 @@ export default async function PurchaseOrderEditPage({
 }) {
   const { id } = await params;
 
-  const po = await prisma.purchaseOrder.findUnique({
-    where: { id },
+  const po = await prisma.purchaseOrder.findFirst({
+    where: { id, ...ACTIVE_PO_FILTER },
     include: { _count: { select: { deliveryNotes: true } } },
   });
 

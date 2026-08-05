@@ -1,6 +1,7 @@
 import { afterAll, beforeAll, describe, expect, it } from "vitest";
 
 import { prisma } from "@/lib/prisma";
+import { TEST_AUDIT_ACTOR } from "@/features/audit/lib/test-actor";
 import { getDeliveryNoteForPreview } from "../queries";
 import { markDeliveryNotePrinted } from "../services/mark-delivery-note-printed";
 
@@ -60,6 +61,7 @@ describe.runIf(runDatabaseTests)("Phase 4 print audit", () => {
     const first = await markDeliveryNotePrinted({
       id: deliveryNoteId,
       expectedUpdatedAt: initial.updatedAt,
+      actor: TEST_AUDIT_ACTOR,
     });
     expect("success" in first && first.success).toBe(true);
 
@@ -74,6 +76,7 @@ describe.runIf(runDatabaseTests)("Phase 4 print audit", () => {
     const second = await markDeliveryNotePrinted({
       id: deliveryNoteId,
       expectedUpdatedAt: afterFirst.updatedAt,
+      actor: TEST_AUDIT_ACTOR,
     });
     expect("success" in second && second.success).toBe(true);
 
@@ -94,6 +97,7 @@ describe.runIf(runDatabaseTests)("Phase 4 print audit", () => {
     const result = await markDeliveryNotePrinted({
       id: deliveryNoteId,
       expectedUpdatedAt: new Date(current.updatedAt.getTime() - 1_000),
+      actor: TEST_AUDIT_ACTOR,
     });
     expect(result.error).toContain("telah berubah");
   });

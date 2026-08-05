@@ -1,4 +1,5 @@
 import { prisma } from "@/lib/prisma";
+import { ACTIVE_DN_FILTER } from "@/features/soft-delete/active";
 import { calculatePOStats } from "../utils/stats";
 
 export async function attachPOStats<T extends { id: string, _count?: { deliveryNotes: number } }>(pos: T[]) {
@@ -6,7 +7,7 @@ export async function attachPOStats<T extends { id: string, _count?: { deliveryN
   if (poIds.length === 0) return [];
 
   const deliveryNotes = await prisma.deliveryNote.findMany({
-    where: { purchaseOrderId: { in: poIds } },
+    where: { purchaseOrderId: { in: poIds }, ...ACTIVE_DN_FILTER },
     select: {
       purchaseOrderId: true,
       printStatus: true,

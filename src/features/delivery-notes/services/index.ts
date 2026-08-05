@@ -1,7 +1,15 @@
 import { Prisma } from "@/generated/prisma/client";
+import {
+  AUDIT_ACTION,
+  AUDIT_ENTITY_TYPE,
+  AUDIT_SOURCE,
+} from "@/features/audit/constants";
+import type { AuditActor } from "@/features/audit/services/audit-service";
+import { recordAuditEvent } from "@/features/audit/services/audit-service";
 import { normalizeLookupKey } from "@/features/imports/normalization/normalize-key";
 import { normalizePoNumber } from "@/features/imports/normalization/normalize-po-number";
 import { prisma } from "@/lib/prisma";
+import { ACTIVE_DN_FILTER } from "@/features/soft-delete/active";
 import { type DeliveryNoteEditInput, deliveryNoteEditSchema } from "../schemas";
 
 class DeliveryNoteConcurrencyError extends Error {}
@@ -19,7 +27,10 @@ function dateKey(value: Date | null): string {
   return value?.toISOString().slice(0, 10) ?? "";
 }
 
-export async function updateDeliveryNote(data: DeliveryNoteEditInput) {
+export async function updateDeliveryNote(
+  data: DeliveryNoteEditInput,
+  actor: AuditActor,
+) {
   const result = deliveryNoteEditSchema.safeParse(data);
   if (!result.success) {
     return { error: "Data tidak valid", details: result.error.flatten() };
@@ -29,8 +40,8 @@ export async function updateDeliveryNote(data: DeliveryNoteEditInput) {
 
   try {
     return await prisma.$transaction(async (tx) => {
-      const current = await tx.deliveryNote.findUnique({
-        where: { id },
+      const current = await tx.deliveryNote.findFirst({
+        where: { id, ...ACTIVE_DN_FILTER },
         include: { purchaseOrder: true, items: true },
       });
 
@@ -228,6 +239,96 @@ export async function updateDeliveryNote(data: DeliveryNoteEditInput) {
 
       if (updated.count !== 1) {
         throw new DeliveryNoteConcurrencyError();
+      }
+
+      // ==== Audit ====
+      const documentBefore = {
+        documentNumber: current.documentNumber,
+        documentDate: current.documentDate
+          ? current.documentDate.toISOString().slice(0, 10)
+          : null,
+        recipientCompanyName: current.recipientCompanyName,
+        branchName: current.branchName,
+        recipientName: current.recipientName,
+        vehicleName: current.vehicleName,
+        vehicleNumber: current.vehicleNumber,
+        additionalPoNumber: current.additionalPoNumber,
+      };
+      const documentAfter = {
+        documentNumber: nextDocumentNumber,
+        documentDate: nextDocumentDate
+          ? nextDocumentDate.toISOString().slice(0, 10)
+          : null,
+        recipientCompanyName: nextRecipientCompanyName,
+        branchName,
+        recipientName: nextRecipientName,
+        vehicleName: nextVehicleName,
+        vehicleNumber: nextVehicleNumber,
+        additionalPoNumber: nextAdditionalPoNumber,
+      };
+
+      const entityLabel = current.branchName || current.uniqueCode;
+
+      if (documentChanged || itemsChanged) {
+        await recordAuditEvent(
+          {
+            actor,
+            entity: {
+              type: AUDIT_ENTITY_TYPE.DELIVERY_NOTE,
+              id,
+              label: entityLabel,
+            },
+            action: AUDIT_ACTION.UPDATE,
+            source: AUDIT_SOURCE.DELIVERY_NOTE_EDITOR,
+            before: documentChanged ? documentBefore : null,
+            after: documentChanged ? documentAfter : null,
+            metadata: {
+              purchaseOrderId: current.purchaseOrderId,
+              poNumber: current.purchaseOrder.normalizedPoNumber,
+              itemsChanged,
+              documentChanged,
+            },
+            batchId: id,
+          },
+          tx,
+        );
+      }
+
+      if (current.printStatus === "PRINTED") {
+        await recordAuditEvent(
+          {
+            actor,
+            entity: {
+              type: AUDIT_ENTITY_TYPE.DELIVERY_NOTE,
+              id,
+              label: entityLabel,
+            },
+            action: AUDIT_ACTION.PRINT_STATUS_RESET,
+            source: AUDIT_SOURCE.DELIVERY_NOTE_EDITOR,
+            before: {
+              printStatus: current.printStatus,
+              printCount: current.printCount,
+            },
+            after: {
+              printStatus: "NOT_PRINTED",
+              printCount: current.printCount,
+            },
+            metadata: {
+              previousStatus: current.printStatus,
+              newStatus: "NOT_PRINTED",
+              editedFields: Object.entries(documentAfter)
+                .filter(([key, value]) => {
+                  const beforeValue =
+                    documentBefore[key as keyof typeof documentBefore];
+                  return JSON.stringify(value) !== JSON.stringify(beforeValue);
+                })
+                .map(([key]) => key),
+              previousPrintCount: current.printCount,
+            },
+            batchId: id,
+          },
+          tx,
+        );
       }
 
       return { success: true, purchaseOrderId: current.purchaseOrderId };

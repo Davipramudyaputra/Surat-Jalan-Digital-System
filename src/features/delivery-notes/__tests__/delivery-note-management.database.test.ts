@@ -1,5 +1,6 @@
 import { describe, it, expect, beforeAll, afterAll } from "vitest";
 import { prisma } from "@/lib/prisma";
+import { TEST_AUDIT_ACTOR } from "@/features/audit/lib/test-actor";
 import { getDeliveryNotes, getDeliveryNoteById } from "../queries";
 import { updateDeliveryNote } from "../services";
 
@@ -139,7 +140,7 @@ describe("Phase 3 - Delivery Note Management", () => {
             sortOrder: 0,
           }
         ]
-      });
+      }, TEST_AUDIT_ACTOR);
 
       expect(res.error).toBeUndefined();
 
@@ -165,7 +166,7 @@ describe("Phase 3 - Delivery Note Management", () => {
           { displayProductName: "Same Item", quantity: "1", sortOrder: 0 },
           { displayProductName: "same item", quantity: "2", sortOrder: 1 },
         ]
-      });
+      }, TEST_AUDIT_ACTOR);
 
       expect(res.error).toContain("Barang dengan nama yang sama sudah tersedia");
     });
@@ -186,7 +187,7 @@ describe("Phase 3 - Delivery Note Management", () => {
         items: [
           { id: dn!.items[0].id, displayProductName: "Test", quantity: "1", sortOrder: 0 },
         ]
-      });
+      }, TEST_AUDIT_ACTOR);
 
       expect(res.error).toContain("diperbarui dari sesi lain");
     });
@@ -214,7 +215,7 @@ describe("Phase 3 - Delivery Note Management", () => {
             sortOrder: 0,
           },
         ],
-      });
+      }, TEST_AUDIT_ACTOR);
 
       expect(res.error).toContain("bukan milik surat jalan ini");
       const unchanged = await prisma.deliveryNoteItem.findUniqueOrThrow({
@@ -239,7 +240,7 @@ describe("Phase 3 - Delivery Note Management", () => {
           quantity: item.quantity.toString(),
           sortOrder: item.sortOrder,
         })),
-      });
+      }, TEST_AUDIT_ACTOR);
 
       expect(res.error).toContain("halaman Edit PO");
       const unchanged = await prisma.purchaseOrder.findUniqueOrThrow({
@@ -267,7 +268,7 @@ describe("Phase 3 - Delivery Note Management", () => {
         items: [
           { id: dn!.items[0].id, displayProductName: "Item C", quantity: "10", sortOrder: 0 },
         ]
-      });
+      }, TEST_AUDIT_ACTOR);
 
       expect(res.error).toBeUndefined();
 

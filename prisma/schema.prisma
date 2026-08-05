@@ -51,22 +51,28 @@ model PurchaseOrder {
   normalizedPoNumber String
   period             String?
   lastSourceUploadId String?
+  deletedAt          DateTime?
+  deletedById        String?
+  deletionReason     String?
+  trashBatchId       String?
   createdAt          DateTime @default(now())
   updatedAt          DateTime @updatedAt
 
   lastSourceUpload Upload?        @relation("LastSourceUpload", fields: [lastSourceUploadId], references: [id], onDelete: SetNull)
+  deletedBy        User?          @relation("PODeletedBy", fields: [deletedById], references: [id], onDelete: SetNull)
   deliveryNotes    DeliveryNote[]
 
-  @@unique([companyCode, normalizedPoNumber])
   @@index([companyCode])
   @@index([normalizedPoNumber])
   @@index([lastSourceUploadId])
+  @@index([deletedAt])
+  @@index([trashBatchId])
 }
 
 model DeliveryNote {
   id                   String      @id @default(cuid())
   purchaseOrderId      String
-  uniqueCode           String      @unique
+  uniqueCode           String
   documentNumber       String?
   documentDate         DateTime?
   recipientCompanyName String
@@ -81,15 +87,21 @@ model DeliveryNote {
   firstPrintedAt       DateTime?
   lastPrintedAt        DateTime?
   printCount           Int         @default(0)
+  deletedAt            DateTime?
+  deletedById          String?
+  deletionReason       String?
+  trashBatchId         String?
   createdAt            DateTime    @default(now())
   updatedAt            DateTime    @updatedAt
 
   purchaseOrder PurchaseOrder      @relation(fields: [purchaseOrderId], references: [id], onDelete: Restrict)
+  deletedBy     User?              @relation("DNDeletedBy", fields: [deletedById], references: [id], onDelete: SetNull)
   items         DeliveryNoteItem[]
 
-  @@unique([purchaseOrderId, normalizedBranchName])
   @@index([normalizedBranchName])
   @@index([printStatus])
+  @@index([deletedAt])
+  @@index([trashBatchId])
 }
 
 model DeliveryNoteItem {
@@ -113,20 +125,54 @@ model DeliveryNoteItem {
   @@index([deliveryNoteId])
 }
 
-model User {
-  id           String    @id @default(cuid())
-  username     String    @unique
-  passwordHash String
-  role         String    @default("ADMIN")
-  isActive     Boolean   @default(true)
-  sessions     Session[]
-  createdAt    DateTime  @default(now())
-  updatedAt    DateTime  @updatedAt
-}
-
 model Session {
   id        String   @id
   userId    String
   expiresAt DateTime
   user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+}
+
+model AuditEvent {
+  id                    String   @id @default(cuid())
+  entityType            String
+  entityId              String
+  entityLabelSnapshot   String?
+  action                String
+  actorId               String?
+  actorNameSnapshot     String?
+  actorIdentifierSnapshot String?
+  actorRoleSnapshot     String?
+  occurredAt            DateTime @default(now())
+  source                String
+  requestId             String?
+  batchId               String?
+  changedFields         Json?
+  beforeData            Json?
+  afterData             Json?
+  metadata              Json?
+  createdAt             DateTime @default(now())
+
+  actor User? @relation("AuditActor", fields: [actorId], references: [id], onDelete: SetNull)
+
+  @@index([occurredAt])
+  @@index([entityType, entityId])
+  @@index([action])
+  @@index([actorId])
+  @@index([source])
+  @@index([requestId])
+  @@index([batchId])
+}
+
+model User {
+  id                    String    @id @default(cuid())
+  username              String    @unique
+  passwordHash          String
+  role                  String    @default("ADMIN")
+  isActive              Boolean   @default(true)
+  sessions              Session[]
+  auditEvents           AuditEvent[] @relation("AuditActor")
+  deletedPurchaseOrders PurchaseOrder[] @relation("PODeletedBy")
+  deletedDeliveryNotes  DeliveryNote[] @relation("DNDeletedBy")
+  createdAt             DateTime  @default(now())
+  updatedAt             DateTime  @updatedAt
 }

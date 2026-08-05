@@ -80,6 +80,13 @@ export function PrintDeliveryNoteButton({
       const result = await confirmDeliveryNotePrintedAction({
         id: deliveryNoteId,
         expectedUpdatedAt,
+        paper: {
+          paperProfile: paperLabel,
+          paperWidthMm: paperWidthMm,
+          paperHeightMm: paperHeightMm,
+          orientation: paperOrientation,
+          pageCount,
+        },
       });
 
       if (result.error) {

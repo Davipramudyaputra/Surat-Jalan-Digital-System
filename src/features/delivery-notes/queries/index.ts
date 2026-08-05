@@ -1,11 +1,12 @@
 import { prisma } from "@/lib/prisma";
 import { Prisma } from "@/generated/prisma/client";
+import { ACTIVE_DN_FILTER } from "@/features/soft-delete/active";
 import { DeliveryNoteSearchParams } from "../schemas";
 
 export async function getDeliveryNotes(params: DeliveryNoteSearchParams) {
   const { q, status, page, limit, purchaseOrderId } = params;
 
-  const where: Prisma.DeliveryNoteWhereInput = {};
+  const where: Prisma.DeliveryNoteWhereInput = { ...ACTIVE_DN_FILTER };
 
   if (purchaseOrderId) {
     where.purchaseOrderId = purchaseOrderId;
@@ -77,8 +78,8 @@ export async function getDeliveryNotes(params: DeliveryNoteSearchParams) {
 }
 
 export async function getDeliveryNoteById(id: string) {
-  return prisma.deliveryNote.findUnique({
-    where: { id },
+  return prisma.deliveryNote.findFirst({
+    where: { id, ...ACTIVE_DN_FILTER },
     include: {
       purchaseOrder: true,
       items: {
@@ -89,8 +90,8 @@ export async function getDeliveryNoteById(id: string) {
 }
 
 export async function getDeliveryNoteForPreview(id: string) {
-  return prisma.deliveryNote.findUnique({
-    where: { id },
+  return prisma.deliveryNote.findFirst({
+    where: { id, ...ACTIVE_DN_FILTER },
     select: {
       id: true,
       purchaseOrderId: true,

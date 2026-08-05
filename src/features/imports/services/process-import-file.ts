@@ -16,7 +16,15 @@ import {
   validateFileDescriptor,
   validateWorkbookSignature,
 } from "@/features/imports/validation/file-validation";
+import type { AuditActor } from "@/features/audit/services/audit-service";
 import { prisma } from "@/lib/prisma";
+
+const SYSTEM_ACTOR: AuditActor = {
+  id: null,
+  name: "SYSTEM",
+  identifier: "SYSTEM",
+  role: "SYSTEM",
+};
 
 export type ImportFilePayload = {
   buffer: Uint8Array;
@@ -24,6 +32,7 @@ export type ImportFilePayload = {
   size: number;
   type: string;
   mode: "preview" | "commit";
+  actor?: AuditActor;
 };
 
 function toJsonValue(value: unknown): Prisma.InputJsonValue {
@@ -184,12 +193,11 @@ export async function processImportFile(
     select: { id: true },
   });
 
-  const activePurchaseOrder = await prisma.purchaseOrder.findUnique({
+  const activePurchaseOrder = await prisma.purchaseOrder.findFirst({
     where: {
-      companyCode_normalizedPoNumber: {
-        companyCode: parsed.companyCode,
-        normalizedPoNumber: parsed.normalizedPoNumber,
-      },
+      companyCode: parsed.companyCode,
+      normalizedPoNumber: parsed.normalizedPoNumber,
+      deletedAt: null,
     },
     select: { id: true, lastSourceUploadId: true },
   });
@@ -318,6 +326,7 @@ export async function processImportFile(
       parsed,
       uploadId: upload.id,
       importStatus,
+      actor: payload.actor ?? SYSTEM_ACTOR,
     });
 
     return {
@@ -339,12 +348,11 @@ export async function processImportFile(
       importStatus === "NEW_FILE" ||
       importStatus === "REIMPORT_AFTER_DELETE"
     ) {
-      const concurrentPurchaseOrder = await prisma.purchaseOrder.findUnique({
+      const concurrentPurchaseOrder = await prisma.purchaseOrder.findFirst({
         where: {
-          companyCode_normalizedPoNumber: {
-            companyCode: parsed.companyCode,
-            normalizedPoNumber: parsed.normalizedPoNumber,
-          },
+          companyCode: parsed.companyCode,
+          normalizedPoNumber: parsed.normalizedPoNumber,
+          deletedAt: null,
         },
         select: { id: true },
       });

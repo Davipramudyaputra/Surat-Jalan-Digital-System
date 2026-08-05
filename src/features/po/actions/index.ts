@@ -6,6 +6,14 @@ import { redirect } from "next/navigation";
 import { normalizePoNumber } from "@/features/imports/normalization/normalize-po-number";
 import { prisma } from "@/lib/prisma";
 import { requireAdmin } from "@/lib/session";
+import {
+  AUDIT_ACTION,
+  AUDIT_ENTITY_TYPE,
+  AUDIT_SOURCE,
+} from "@/features/audit/constants";
+import { actorFromSession } from "@/features/audit/lib/actor";
+import { recordAuditEvent } from "@/features/audit/services/audit-service";
+import { ACTIVE_PO_FILTER } from "@/features/soft-delete/active";
 import { editPurchaseOrderSchema } from "../schemas";
 
 type ActionState = { error: string };
@@ -17,11 +25,14 @@ export async function editPurchaseOrderAction(
   _prevState: ActionState,
   formData: FormData,
 ): Promise<ActionState> {
+  let session;
   try {
-    await requireAdmin();
+    session = await requireAdmin();
   } catch {
     return { error: "Sesi admin tidak valid. Silakan login kembali." };
   }
+
+  const actor = actorFromSession(session);
 
   const parsed = editPurchaseOrderSchema.safeParse(
     Object.fromEntries(formData.entries()),
@@ -42,7 +53,9 @@ export async function editPurchaseOrderAction(
 
   try {
     const result = await prisma.$transaction(async (tx) => {
-      const existingPo = await tx.purchaseOrder.findUnique({ where: { id } });
+      const existingPo = await tx.purchaseOrder.findFirst({
+        where: { id, ...ACTIVE_PO_FILTER },
+      });
 
       if (!existingPo) {
         return { error: "Purchase Order tidak ditemukan.", changed: false };
@@ -63,12 +76,11 @@ export async function editPurchaseOrderAction(
         return { error: "", changed: false };
       }
 
-      const duplicate = await tx.purchaseOrder.findUnique({
+      const duplicate = await tx.purchaseOrder.findFirst({
         where: {
-          companyCode_normalizedPoNumber: {
-            companyCode,
-            normalizedPoNumber,
-          },
+          companyCode,
+          normalizedPoNumber,
+          deletedAt: null,
         },
         select: { id: true },
       });
@@ -105,6 +117,37 @@ export async function editPurchaseOrderAction(
         },
       });
 
+      const afterSnapshot = {
+        poNumber,
+        normalizedPoNumber,
+        companyCode,
+        companyName,
+        period,
+      };
+      const beforeSnapshot = {
+        poNumber: existingPo.poNumber,
+        normalizedPoNumber: existingPo.normalizedPoNumber,
+        companyCode: existingPo.companyCode,
+        companyName: existingPo.companyName,
+        period: existingPo.period,
+      };
+
+      await recordAuditEvent(
+        {
+          actor,
+          entity: {
+            type: AUDIT_ENTITY_TYPE.PURCHASE_ORDER,
+            id,
+            label: poNumber,
+          },
+          action: AUDIT_ACTION.UPDATE,
+          source: AUDIT_SOURCE.PO_EDITOR,
+          before: beforeSnapshot,
+          after: afterSnapshot,
+        },
+        tx,
+      );
+
       return { error: "", changed: true };
     });
 
@@ -132,11 +175,14 @@ export async function deletePurchaseOrderAction(
   _prevState: ActionState,
   formData: FormData,
 ): Promise<ActionState> {
+  let session;
   try {
-    await requireAdmin();
+    session = await requireAdmin();
   } catch {
     return { error: "Sesi admin tidak valid. Silakan login kembali." };
   }
+
+  const actor = actorFromSession(session);
 
   const id = formData.get("id");
   const confirmationPoNumber = formData.get("confirmationPoNumber");
@@ -162,7 +208,9 @@ export async function deletePurchaseOrderAction(
 
   try {
     await prisma.$transaction(async (tx) => {
-      const po = await tx.purchaseOrder.findUnique({ where: { id } });
+      const po = await tx.purchaseOrder.findFirst({
+        where: { id, deletedAt: null },
+      });
 
       if (!po) {
         throw new Error("NOT_FOUND");
@@ -176,17 +224,61 @@ export async function deletePurchaseOrderAction(
         throw new ConcurrencyError();
       }
 
-      await tx.deliveryNoteItem.deleteMany({
+      const deliveryNoteCount = await tx.deliveryNote.count({
+        where: { purchaseOrderId: id },
+      });
+      const itemCount = await tx.deliveryNoteItem.count({
         where: { deliveryNote: { purchaseOrderId: id } },
       });
-      await tx.deliveryNote.deleteMany({ where: { purchaseOrderId: id } });
 
-      const deleted = await tx.purchaseOrder.deleteMany({
-        where: { id, updatedAt: expectedUpdatedAt },
+      const trashBatchId = crypto.randomUUID();
+      const now = new Date();
+      const deletionReason = typeof formData.get("deletionReason") === "string"
+        ? (formData.get("deletionReason") as string).trim() || null
+        : null;
+
+      // Tandai seluruh Surat Jalan terkait terhapus (soft delete child).
+      await tx.deliveryNote.updateMany({
+        where: { purchaseOrderId: id, deletedAt: null },
+        data: { deletedAt: now, deletedById: actor.id, deletionReason, trashBatchId },
       });
-      if (deleted.count !== 1) {
+
+      // Tandai PO terhapus (soft delete parent).
+      const updated = await tx.purchaseOrder.updateMany({
+        where: { id, updatedAt: expectedUpdatedAt, deletedAt: null },
+        data: { deletedAt: now, deletedById: actor.id, deletionReason, trashBatchId },
+      });
+      if (updated.count !== 1) {
         throw new ConcurrencyError();
       }
+
+      await recordAuditEvent(
+        {
+          actor,
+          entity: {
+            type: AUDIT_ENTITY_TYPE.PURCHASE_ORDER,
+            id,
+            label: po.poNumber,
+          },
+          action: AUDIT_ACTION.DELETE,
+          source: AUDIT_SOURCE.PO_DELETE_DIALOG,
+          before: {
+            poNumber: po.poNumber,
+            companyCode: po.companyCode,
+            companyName: po.companyName,
+            period: po.period,
+          },
+          metadata: {
+            deliveryNoteCount,
+            itemCount,
+            relatedCounts: { deliveryNoteCount, itemCount },
+            trashBatchId,
+            deletionReason,
+          },
+          batchId: trashBatchId,
+        },
+        tx,
+      );
     });
   } catch (error) {
     if (error instanceof ConcurrencyError) {
@@ -207,5 +299,6 @@ export async function deletePurchaseOrderAction(
 
   revalidatePath("/dashboard");
   revalidatePath("/po");
+  revalidatePath("/recycle-bin");
   redirect("/po");
 }

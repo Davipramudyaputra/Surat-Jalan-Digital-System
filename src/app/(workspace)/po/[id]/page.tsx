@@ -7,6 +7,9 @@ import { deliveryNoteSearchSchema } from "@/features/delivery-notes/schemas";
 import { SearchAndFilter } from "@/features/delivery-notes/components/SearchAndFilter";
 import { attachSinglePOStats } from "@/features/po/services/po-stats";
 import { DeletePODialog } from "@/features/po/components/DeletePODialog";
+import { ContextualHistorySection } from "@/features/audit/components/ContextualHistorySection";
+import { AUDIT_ENTITY_TYPE } from "@/features/audit/constants";
+import { ACTIVE_PO_FILTER } from "@/features/soft-delete/active";
 import {
   ArrowLeft,
   Edit3,
@@ -29,11 +32,11 @@ export default async function PurchaseOrderDetailPage({
   const { id } = await params;
   const resolvedParams = await searchParams;
 
-  const po = await prisma.purchaseOrder.findUnique({
-    where: { id },
+  const po = await prisma.purchaseOrder.findFirst({
+    where: { id, ...ACTIVE_PO_FILTER },
     include: {
       _count: {
-        select: { deliveryNotes: true },
+        select: { deliveryNotes: { where: { deletedAt: null } } },
       },
     },
   });
@@ -243,6 +246,13 @@ export default async function PurchaseOrderDetailPage({
           </div>
         )}
       </section>
+
+      <ContextualHistorySection
+        entityType={AUDIT_ENTITY_TYPE.PURCHASE_ORDER}
+        entityId={po.id}
+        title="History PO"
+        description="Riwayat perubahan dan import pada Purchase Order ini."
+      />
     </div>
   );
 }

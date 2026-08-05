@@ -9,6 +9,7 @@ import {
 import { processImportFile } from "@/features/imports/services/process-import-file";
 import type { ImportFileResult } from "@/features/imports/types/import-types";
 import { sanitizeFileName } from "@/features/imports/validation/file-validation";
+import { actorFromSession } from "@/features/audit/lib/actor";
 import { requireAdmin } from "@/lib/session";
 
 export const dynamic = "force-dynamic";
@@ -35,8 +36,9 @@ function invalidRequest(message: string, status = 400): NextResponse {
 }
 
 export async function POST(request: Request): Promise<NextResponse> {
+  let session;
   try {
-    await requireAdmin();
+    session = await requireAdmin();
   } catch {
     return NextResponse.json(
       {
@@ -112,6 +114,7 @@ export async function POST(request: Request): Promise<NextResponse> {
           size: file.size,
           type: file.type,
           mode,
+          actor: actorFromSession(session!),
         }),
       );
     } catch {
