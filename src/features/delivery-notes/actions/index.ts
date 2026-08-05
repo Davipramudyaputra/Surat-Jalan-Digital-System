@@ -3,21 +3,26 @@
 import { revalidatePath } from "next/cache";
 
 import { requireAdmin } from "@/lib/session";
+import { actorFromSession } from "@/features/audit/lib/actor";
 import {
   confirmDeliveryNotePrintedSchema,
   type DeliveryNoteEditInput,
 } from "../schemas";
-import { markDeliveryNotePrinted } from "../services/mark-delivery-note-printed";
+import {
+  markDeliveryNotePrinted,
+  type PrintPaperContext,
+} from "../services/mark-delivery-note-printed";
 import { updateDeliveryNote } from "../services";
 
 export async function updateDeliveryNoteAction(data: DeliveryNoteEditInput) {
+  let session;
   try {
-    await requireAdmin();
+    session = await requireAdmin();
   } catch {
     return { error: "Sesi admin tidak valid. Silakan login kembali." };
   }
 
-  const result = await updateDeliveryNote(data);
+  const result = await updateDeliveryNote(data, actorFromSession(session));
   if ("success" in result && result.success) {
     revalidatePath("/dashboard");
     revalidatePath("/po");
@@ -32,19 +37,28 @@ export async function updateDeliveryNoteAction(data: DeliveryNoteEditInput) {
 export async function confirmDeliveryNotePrintedAction(input: {
   id: string;
   expectedUpdatedAt: string;
+  paper?: PrintPaperContext;
 }) {
+  let session;
   try {
-    await requireAdmin();
+    session = await requireAdmin();
   } catch {
     return { error: "Sesi Anda telah berakhir. Silakan login kembali." };
   }
 
-  const parsed = confirmDeliveryNotePrintedSchema.safeParse(input);
+  const parsed = confirmDeliveryNotePrintedSchema.safeParse({
+    id: input.id,
+    expectedUpdatedAt: input.expectedUpdatedAt,
+  });
   if (!parsed.success) {
     return { error: "Permintaan konfirmasi cetak tidak valid." };
   }
 
-  const result = await markDeliveryNotePrinted(parsed.data);
+  const result = await markDeliveryNotePrinted({
+    ...parsed.data,
+    actor: actorFromSession(session),
+    paper: input.paper,
+  });
   if (!("success" in result) || !result.success) {
     return result;
   }

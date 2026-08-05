@@ -3,8 +3,15 @@
 import bcrypt from "bcryptjs";
 import { redirect } from "next/navigation";
 
+import {
+  AUDIT_ACTION,
+  AUDIT_ENTITY_TYPE,
+  AUDIT_SOURCE,
+} from "@/features/audit/constants";
+import { actorFromSession } from "@/features/audit/lib/actor";
+import { recordAuditEvent } from "@/features/audit/services/audit-service";
 import { prisma } from "@/lib/prisma";
-import { createSession, destroySession } from "@/lib/session";
+import { createSession, destroySession, getSession } from "@/lib/session";
 import { requireAdmin } from "@/lib/session";
 import { changePasswordSchema, loginSchema } from "../schemas";
 
@@ -34,6 +41,23 @@ export async function loginAction(prevState: { error: string }, formData: FormDa
     }
 
     await createSession(user.id);
+
+    // Audit: hanya login berhasil. Actor dari user yang berhasil login.
+    await recordAuditEvent({
+      actor: {
+        id: user.id,
+        name: user.username,
+        identifier: user.username,
+        role: user.role,
+      },
+      entity: {
+        type: AUDIT_ENTITY_TYPE.USER_AUTH,
+        id: user.id,
+        label: user.username,
+      },
+      action: AUDIT_ACTION.LOGIN,
+      source: AUDIT_SOURCE.AUTH,
+    });
   } catch {
     console.error("Login gagal karena kesalahan internal.");
     return { error: "Terjadi kesalahan. Silakan coba kembali." };
@@ -43,6 +67,25 @@ export async function loginAction(prevState: { error: string }, formData: FormDa
 }
 
 export async function logoutAction() {
+  const session = await getSession();
+  if (session) {
+    await recordAuditEvent({
+      actor: {
+        id: session.user.id,
+        name: session.user.username,
+        identifier: session.user.username,
+        role: session.user.role,
+      },
+      entity: {
+        type: AUDIT_ENTITY_TYPE.USER_AUTH,
+        id: session.user.id,
+        label: session.user.username,
+      },
+      action: AUDIT_ACTION.LOGOUT,
+      source: AUDIT_SOURCE.AUTH,
+    });
+  }
+
   await destroySession();
   redirect("/login");
 }
@@ -89,6 +132,20 @@ export async function changePasswordAction(
         where: { userId: session.user.id, id: { not: session.id } },
       }),
     ]);
+
+    // Audit: tidak menyimpan password lama, baru, maupun hash.
+    await recordAuditEvent({
+      actor: actorFromSession(session),
+      entity: {
+        type: AUDIT_ENTITY_TYPE.USER_AUTH,
+        id: session.user.id,
+        label: session.user.username,
+      },
+      action: AUDIT_ACTION.PASSWORD_CHANGE,
+      source: AUDIT_SOURCE.AUTH,
+      metadata: { status: "success" },
+    });
+
     return {
       error: "",
       success: "Password berhasil diperbarui. Session lain telah dicabut.",

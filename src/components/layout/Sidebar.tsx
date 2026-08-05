@@ -4,7 +4,14 @@ import Link from "next/link";
 import Image from "next/image";
 import { usePathname } from "next/navigation";
 import { useTransition } from "react";
-import { LayoutDashboard, LogOut, PackageOpen, X } from "lucide-react";
+import {
+  History,
+  LayoutDashboard,
+  LogOut,
+  PackageOpen,
+  Trash2,
+  X,
+} from "lucide-react";
 import brandLogo from "../../../public/brand/logo-pp-transparent.png";
 
 import { logoutAction } from "@/features/auth/actions";
@@ -12,6 +19,8 @@ import { logoutAction } from "@/features/auth/actions";
 const navigation = [
   { name: "Dashboard", href: "/dashboard", icon: LayoutDashboard },
   { name: "Data PO", href: "/po", icon: PackageOpen },
+  { name: "History", href: "/history", icon: History },
+  { name: "Recycle Bin", href: "/recycle-bin", icon: Trash2 },
 ];
 
 export function Sidebar({

@@ -1,6 +1,13 @@
 import "server-only";
 
 import { Prisma, PrintStatus } from "@/generated/prisma/client";
+import {
+  AUDIT_ACTION,
+  AUDIT_ENTITY_TYPE,
+  AUDIT_SOURCE,
+} from "@/features/audit/constants";
+import type { AuditActor } from "@/features/audit/services/audit-service";
+import { recordAuditEvent } from "@/features/audit/services/audit-service";
 import { createStableDeliveryNoteCode } from "@/features/imports/services/create-delivery-note-code";
 import type {
   ImportIssue,
@@ -15,6 +22,14 @@ type ImportPurchaseOrderInput = {
   parsed: ParsedImport;
   uploadId: string;
   importStatus: ImportResultStatus;
+  actor?: AuditActor;
+};
+
+const SYSTEM_ACTOR: AuditActor = {
+  id: null,
+  name: "SYSTEM",
+  identifier: "SYSTEM",
+  role: "SYSTEM",
 };
 
 type ImportPurchaseOrderResult = {
@@ -91,15 +106,15 @@ export async function importPurchaseOrder(
     async (transaction) => {
       // Validasi duplikat concurrent. Gunakan explicit check terhadap PO aktif
       // yang mungkin saja baru saja terbuat pada transaction lain.
-      const existingPurchaseOrder = await transaction.purchaseOrder.findUnique({
+      const existingPurchaseOrder = await transaction.purchaseOrder.findFirst({
         where: {
-          companyCode_normalizedPoNumber: {
-            companyCode: input.parsed.companyCode,
-            normalizedPoNumber: input.parsed.normalizedPoNumber,
-          },
+          companyCode: input.parsed.companyCode,
+          normalizedPoNumber: input.parsed.normalizedPoNumber,
+          deletedAt: null,
         },
         include: {
           deliveryNotes: {
+            where: { deletedAt: null },
             include: { items: true },
           },
         },
@@ -153,25 +168,21 @@ export async function importPurchaseOrder(
 
       const isNewPO = !existingPurchaseOrder;
 
-      const purchaseOrder = await transaction.purchaseOrder.upsert({
-        where: {
-          companyCode_normalizedPoNumber: {
-            companyCode: input.parsed.companyCode,
-            normalizedPoNumber: input.parsed.normalizedPoNumber,
-          },
-        },
-        create: {
-          companyCode: input.parsed.companyCode,
-          companyName: input.parsed.companyName,
-          lastSourceUploadId: input.uploadId,
-          normalizedPoNumber: input.parsed.normalizedPoNumber,
-          period: input.parsed.period,
-          poNumber: input.parsed.poNumber,
-        },
-        update: {
-          lastSourceUploadId: input.uploadId,
-        },
-      });
+      const purchaseOrder = existingPurchaseOrder
+        ? await transaction.purchaseOrder.update({
+            where: { id: existingPurchaseOrder.id },
+            data: { lastSourceUploadId: input.uploadId },
+          })
+        : await transaction.purchaseOrder.create({
+            data: {
+              companyCode: input.parsed.companyCode,
+              companyName: input.parsed.companyName,
+              lastSourceUploadId: input.uploadId,
+              normalizedPoNumber: input.parsed.normalizedPoNumber,
+              period: input.parsed.period,
+              poNumber: input.parsed.poNumber,
+            },
+          });
 
       const existingNotesByBranch = new Map(
         (existingPurchaseOrder?.deliveryNotes ?? []).map((deliveryNote) => [
@@ -222,40 +233,38 @@ export async function importPurchaseOrder(
           deliveryNotesUpdated++;
         }
 
-        const deliveryNote = await transaction.deliveryNote.upsert({
-          where: {
-            purchaseOrderId_normalizedBranchName: {
-              normalizedBranchName: parsedDeliveryNote.normalizedBranchName,
-              purchaseOrderId: purchaseOrder.id,
-            },
-          },
-          create: {
-            branchName: parsedDeliveryNote.branchName,
-            normalizedBranchName: parsedDeliveryNote.normalizedBranchName,
-            originalBranchName: parsedDeliveryNote.originalBranchName,
-            purchaseOrderId: purchaseOrder.id,
-            recipientCompanyName: purchaseOrder.companyName,
-            uniqueCode: createStableDeliveryNoteCode({
-              companyCode: input.parsed.companyCode,
-              normalizedBranchName:
-                parsedDeliveryNote.normalizedBranchName,
-              normalizedPoNumber: input.parsed.normalizedPoNumber,
-            }),
-          },
-          update: {
-            branchName: branchWasManuallyEdited
-              ? undefined
-              : parsedDeliveryNote.branchName,
-            normalizedBranchName: parsedDeliveryNote.normalizedBranchName,
-            originalBranchName: parsedDeliveryNote.originalBranchName,
-            printStatus: contentChanged
-              ? PrintStatus.NOT_PRINTED
-              : undefined,
-            recipientCompanyName: recipientWasManuallyEdited
-              ? undefined
-              : purchaseOrder.companyName,
-          },
-        });
+        const deliveryNote = existingDeliveryNote
+          ? await transaction.deliveryNote.update({
+              where: { id: existingDeliveryNote.id },
+              data: {
+                branchName: branchWasManuallyEdited
+                  ? undefined
+                  : parsedDeliveryNote.branchName,
+                normalizedBranchName: parsedDeliveryNote.normalizedBranchName,
+                originalBranchName: parsedDeliveryNote.originalBranchName,
+                printStatus: contentChanged
+                  ? PrintStatus.NOT_PRINTED
+                  : undefined,
+                recipientCompanyName: recipientWasManuallyEdited
+                  ? undefined
+                  : purchaseOrder.companyName,
+              },
+            })
+          : await transaction.deliveryNote.create({
+              data: {
+                branchName: parsedDeliveryNote.branchName,
+                normalizedBranchName: parsedDeliveryNote.normalizedBranchName,
+                originalBranchName: parsedDeliveryNote.originalBranchName,
+                purchaseOrderId: purchaseOrder.id,
+                recipientCompanyName: purchaseOrder.companyName,
+                uniqueCode: createStableDeliveryNoteCode({
+                  companyCode: input.parsed.companyCode,
+                  normalizedBranchName:
+                    parsedDeliveryNote.normalizedBranchName,
+                  normalizedPoNumber: input.parsed.normalizedPoNumber,
+                }),
+              },
+            });
 
         const importedProducts = parsedDeliveryNote.items.map(
           (item) => item.normalizedProductName,
@@ -356,6 +365,49 @@ export async function importPurchaseOrder(
           warnings: toJsonValue(allWarnings),
         },
       });
+
+      const isReimport =
+        input.importStatus === "REIMPORT_AFTER_DELETE" ||
+        input.importStatus === "REVISION";
+
+      await recordAuditEvent(
+        {
+          actor: input.actor ?? SYSTEM_ACTOR,
+          entity: {
+            type: AUDIT_ENTITY_TYPE.IMPORT_JOB,
+            id: input.uploadId,
+            label: input.parsed.poNumber,
+          },
+          action: isReimport ? AUDIT_ACTION.REIMPORT : AUDIT_ACTION.IMPORT,
+          source: AUDIT_SOURCE.PO_IMPORT,
+          after: {
+            poNumber: input.parsed.poNumber,
+            companyCode: input.parsed.companyCode,
+            companyName: input.parsed.companyName,
+            period: input.parsed.period,
+            deliveryNoteCount: input.parsed.summary.deliveryNoteCount,
+            itemCount: input.parsed.summary.itemCount,
+          },
+          metadata: {
+            fileHash: input.fileHash,
+            fileName: null,
+            classification: input.importStatus,
+            purchaseOrders: 1,
+            deliveryNotes: input.parsed.summary.deliveryNoteCount,
+            items: input.parsed.summary.itemCount,
+            duplicate: false,
+            databaseChanges: {
+              purchaseOrdersCreated: isNewPO ? 1 : 0,
+              purchaseOrdersUpdated: isNewPO ? 0 : 1,
+              deliveryNotesCreated,
+              deliveryNotesUpdated,
+              itemsCreated,
+              itemsUpdated,
+            },
+          },
+        },
+        transaction,
+      );
 
       return {
         deliveryNotes: input.parsed.summary.deliveryNoteCount,

@@ -5,6 +5,7 @@ import Link from "next/link";
 import { PurchaseOrderSearch } from "@/features/po/components/PurchaseOrderSearch";
 import { PurchaseOrderList } from "@/features/po/components/PurchaseOrderList";
 import { attachPOStats } from "@/features/po/services/po-stats";
+import { ACTIVE_DN_FILTER, ACTIVE_PO_FILTER } from "@/features/soft-delete/active";
 import { Prisma } from "@/generated/prisma/client";
 import { Upload, X } from "lucide-react";
 
@@ -30,7 +31,7 @@ export default async function DataPOPage({
   const limit = Number.isFinite(parsedLimit) ? Math.min(100, Math.max(1, parsedLimit)) : 20;
   const skip = (page - 1) * limit;
 
-  const where: Prisma.PurchaseOrderWhereInput = {};
+  const where: Prisma.PurchaseOrderWhereInput = { ...ACTIVE_PO_FILTER };
 
   if (q) {
     where.OR = [
@@ -44,25 +45,25 @@ export default async function DataPOPage({
   if (status === "Belum Dimulai") {
     where.AND = [
       ...(Array.isArray(where.AND) ? where.AND : []),
-      { deliveryNotes: { some: {} } },
-      { NOT: { deliveryNotes: { some: { printStatus: "PRINTED" } } } }
+      { deliveryNotes: { some: ACTIVE_DN_FILTER } },
+      { NOT: { deliveryNotes: { some: { ...ACTIVE_DN_FILTER, printStatus: "PRINTED" } } } }
     ];
   } else if (status === "Dalam Proses") {
     where.AND = [
       ...(Array.isArray(where.AND) ? where.AND : []),
-      { deliveryNotes: { some: { printStatus: "PRINTED" } } },
-      { deliveryNotes: { some: { printStatus: "NOT_PRINTED" } } }
+      { deliveryNotes: { some: { ...ACTIVE_DN_FILTER, printStatus: "PRINTED" } } },
+      { deliveryNotes: { some: { ...ACTIVE_DN_FILTER, printStatus: "NOT_PRINTED" } } }
     ];
   } else if (status === "Selesai") {
     where.AND = [
       ...(Array.isArray(where.AND) ? where.AND : []),
-      { deliveryNotes: { some: {} } },
-      { NOT: { deliveryNotes: { some: { printStatus: "NOT_PRINTED" } } } }
+      { deliveryNotes: { some: ACTIVE_DN_FILTER } },
+      { NOT: { deliveryNotes: { some: { ...ACTIVE_DN_FILTER, printStatus: "NOT_PRINTED" } } } }
     ];
   } else if (status === "Kosong") {
     where.AND = [
       ...(Array.isArray(where.AND) ? where.AND : []),
-      { deliveryNotes: { none: {} } }
+      { deliveryNotes: { none: ACTIVE_DN_FILTER } }
     ];
   }
 

@@ -2,6 +2,8 @@ import type { Metadata } from "next";
 import Link from "next/link";
 import { notFound } from "next/navigation";
 import { getDeliveryNoteById } from "@/features/delivery-notes/queries";
+import { ContextualHistorySection } from "@/features/audit/components/ContextualHistorySection";
+import { AUDIT_ENTITY_TYPE } from "@/features/audit/constants";
 import { formatBusinessDate } from "@/lib/delivery-note-template/formatter";
 import {
   ArrowLeft,
@@ -177,6 +179,13 @@ export default async function DeliveryNoteDetailPage({
           </div>
         </dl>
       </section>
+
+      <ContextualHistorySection
+        entityType={AUDIT_ENTITY_TYPE.DELIVERY_NOTE}
+        entityId={deliveryNote.id}
+        title="History Surat Jalan"
+        description="Riwayat perubahan data, item, dan cetak pada Surat Jalan ini."
+      />
     </div>
   );
 }

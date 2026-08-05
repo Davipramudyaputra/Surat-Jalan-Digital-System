@@ -35,12 +35,10 @@ function buildSyntheticWorkbook(
 }
 
 async function cleanupSyntheticFixture(prisma: PrismaClient): Promise<void> {
-  const purchaseOrder = await prisma.purchaseOrder.findUnique({
+  const purchaseOrder = await prisma.purchaseOrder.findFirst({
     where: {
-      companyCode_normalizedPoNumber: {
-        companyCode: "SOF",
-        normalizedPoNumber: syntheticPoNumber,
-      },
+      companyCode: "SOF",
+      normalizedPoNumber: syntheticPoNumber,
     },
   });
 
@@ -87,15 +85,15 @@ describe.runIf(runDatabaseTests)("database verification fixture", () => {
       firstImport.status,
     );
 
-    const purchaseOrder = await prisma.purchaseOrder.findUnique({
+    const purchaseOrder = await prisma.purchaseOrder.findFirst({
       where: {
-        companyCode_normalizedPoNumber: {
-          companyCode: "SOF",
-          normalizedPoNumber: "678/PPU SOF CCM/VII/2026",
-        },
+        companyCode: "SOF",
+        normalizedPoNumber: "678/PPU SOF CCM/VII/2026",
+        deletedAt: null,
       },
       include: {
         deliveryNotes: {
+          where: { deletedAt: null },
           include: { items: true },
         },
       },
@@ -117,10 +115,12 @@ describe.runIf(runDatabaseTests)("database verification fixture", () => {
       where: {
         companyCode: "SOF",
         normalizedPoNumber: "678/PPU SOF CCM/VII/2026",
+        deletedAt: null,
       },
     });
     const scopedDeliveryNoteCount = await prisma.deliveryNote.count({
       where: {
+        deletedAt: null,
         purchaseOrder: {
           companyCode: "SOF",
           normalizedPoNumber: "678/PPU SOF CCM/VII/2026",
@@ -130,6 +130,7 @@ describe.runIf(runDatabaseTests)("database verification fixture", () => {
     const scopedItemCount = await prisma.deliveryNoteItem.count({
       where: {
         deliveryNote: {
+          deletedAt: null,
           purchaseOrder: {
             companyCode: "SOF",
             normalizedPoNumber: "678/PPU SOF CCM/VII/2026",
@@ -170,12 +171,10 @@ describe.runIf(runDatabaseTests)("database verification fixture", () => {
 
       expect(firstImport.status).toBe("IMPORTED");
 
-      const initialPurchaseOrder = await prisma.purchaseOrder.findUniqueOrThrow({
+      const initialPurchaseOrder = await prisma.purchaseOrder.findFirstOrThrow({
         where: {
-          companyCode_normalizedPoNumber: {
-            companyCode: "SOF",
-            normalizedPoNumber: syntheticPoNumber,
-          },
+          companyCode: "SOF",
+          normalizedPoNumber: syntheticPoNumber,
         },
         include: { deliveryNotes: true },
       });
@@ -211,12 +210,10 @@ describe.runIf(runDatabaseTests)("database verification fixture", () => {
       );
 
       const updatedPurchaseOrder =
-        await prisma.purchaseOrder.findUniqueOrThrow({
+        await prisma.purchaseOrder.findFirstOrThrow({
           where: {
-            companyCode_normalizedPoNumber: {
-              companyCode: "SOF",
-              normalizedPoNumber: syntheticPoNumber,
-            },
+            companyCode: "SOF",
+            normalizedPoNumber: syntheticPoNumber,
           },
           include: {
             deliveryNotes: {
@@ -351,12 +348,10 @@ describe.runIf(runDatabaseTests)("database verification fixture", () => {
       expect(preservedManualItem.displayProductName).toBe("Produk Manual");
       expect(preservedManualItem.quantity.toString()).toBe("99");
 
-      const activePo = await prisma.purchaseOrder.findUniqueOrThrow({
+      const activePo = await prisma.purchaseOrder.findFirstOrThrow({
         where: {
-          companyCode_normalizedPoNumber: {
-            companyCode: "SOF",
-            normalizedPoNumber: syntheticPoNumber,
-          },
+          companyCode: "SOF",
+          normalizedPoNumber: syntheticPoNumber,
         },
       });
       await prisma.$transaction(async (tx) => {

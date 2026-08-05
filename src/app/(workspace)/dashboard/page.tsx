@@ -2,6 +2,7 @@ import { Metadata } from "next";
 import { prisma } from "@/lib/prisma";
 import Link from "next/link";
 import { attachPOStats } from "@/features/po/services/po-stats";
+import { ACTIVE_DN_FILTER, ACTIVE_PO_FILTER } from "@/features/soft-delete/active";
 import {
   ArrowRight,
   CheckCircle2,
@@ -18,9 +19,9 @@ export const metadata: Metadata = {
 export default async function DashboardPage() {
   // Aggregate Metrics
   const [totalPO, totalSJ, printedSJ] = await Promise.all([
-    prisma.purchaseOrder.count(),
-    prisma.deliveryNote.count(),
-    prisma.deliveryNote.count({ where: { printStatus: "PRINTED" } }),
+    prisma.purchaseOrder.count({ where: ACTIVE_PO_FILTER }),
+    prisma.deliveryNote.count({ where: ACTIVE_DN_FILTER }),
+    prisma.deliveryNote.count({ where: { ...ACTIVE_DN_FILTER, printStatus: "PRINTED" } }),
   ]);
 
   const progressPercentage = totalSJ > 0 ? Math.round((printedSJ / totalSJ) * 100) : 0;
@@ -28,6 +29,7 @@ export default async function DashboardPage() {
 
   // Recent Purchase Orders
   const recentPOs = await prisma.purchaseOrder.findMany({
+      where: ACTIVE_PO_FILTER,
       orderBy: [{ updatedAt: "desc" }, { id: "desc" }],
     take: 5,
     include: {
@@ -42,8 +44,9 @@ export default async function DashboardPage() {
   // POs needing completion (has NOT_PRINTED notes)
   const pendingPOs = await prisma.purchaseOrder.findMany({
     where: {
+      ...ACTIVE_PO_FILTER,
       deliveryNotes: {
-        some: { printStatus: "NOT_PRINTED" },
+        some: { printStatus: "NOT_PRINTED", ...ACTIVE_DN_FILTER },
       },
     },
     orderBy: [{ updatedAt: "desc" }, { id: "desc" }],
