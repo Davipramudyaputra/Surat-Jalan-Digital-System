@@ -37,6 +37,7 @@ export const AUDIT_ACTION_FILTER_OPTIONS: ReadonlyArray<{
   { value: AUDIT_ACTION.REPRINT, label: "Cetak Ulang" },
   { value: AUDIT_ACTION.PRINT_STATUS_RESET, label: "Reset Status Cetak" },
   { value: AUDIT_ACTION.STATUS_CHANGE, label: "Perubahan Status" },
+  { value: AUDIT_ACTION.PDF_EXPORT, label: "Export PDF" },
   { value: AUDIT_ACTION.LOGIN, label: "Login" },
   { value: AUDIT_ACTION.LOGOUT, label: "Logout" },
   { value: AUDIT_ACTION.PASSWORD_CHANGE, label: "Ubah Password" },

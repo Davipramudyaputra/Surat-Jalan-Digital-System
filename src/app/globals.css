@@ -4213,38 +4213,74 @@ textarea:focus-visible {
   font-size: 0.66rem;
 }
 
-.audit-detail-field-values strong {
+.audit-detail-field-values .audit-value {
   color: var(--ink-700);
   font-size: 0.85rem;
   font-weight: 500;
   overflow-wrap: anywhere;
 }
 
-.audit-detail-field-values strong.audit-before {
+.audit-detail-field-values .audit-before {
   color: var(--ink-500);
 }
 
-.audit-detail-field-values strong.audit-after {
+.audit-detail-field-values .audit-after {
   color: var(--brand-red-700);
   font-weight: 600;
 }
 
-.audit-detail-field-values strong.audit-same {
-  color: var(--ink-700);
-}
-
-.audit-detail-pre {
+.audit-metadata-grid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
   margin: 0;
-  max-height: 16rem;
-  overflow: auto;
+  overflow: hidden;
   border: 1px solid var(--border-soft);
   border-radius: var(--radius-sm);
+}
+
+.audit-metadata-grid > div {
+  min-width: 0;
+  border-bottom: 1px solid var(--border-soft);
+  padding: 0.75rem 0.85rem;
+}
+
+.audit-metadata-grid > div:nth-child(odd) {
+  border-right: 1px solid var(--border-soft);
+}
+
+.audit-metadata-grid dt,
+.audit-structured-group dt {
+  color: var(--ink-500);
+  font-size: 0.66rem;
+  font-weight: 700;
+}
+
+.audit-metadata-grid dd,
+.audit-structured-group dd {
+  margin: 0.25rem 0 0;
+  color: var(--ink-900);
+  font-size: 0.8rem;
+  overflow-wrap: anywhere;
+}
+
+.audit-structured-list {
+  display: grid;
+  gap: 0.25rem;
+  margin: 0;
+  padding-left: 1.1rem;
+}
+
+.audit-structured-group {
+  display: grid;
+  gap: 0.55rem;
+  margin: 0;
+  border-left: 2px solid var(--border-medium);
   background: var(--surface-soft);
-  color: var(--ink-700);
-  font-size: 0.78rem;
-  padding: 0.85rem;
-  white-space: pre-wrap;
-  word-break: break-word;
+  padding: 0.6rem 0.7rem;
+}
+
+.audit-structured-group > div {
+  min-width: 0;
 }
 
 .contextual-history-note {
@@ -4282,6 +4318,14 @@ textarea:focus-visible {
 
   .audit-detail-field-values {
     grid-template-columns: 1fr;
+  }
+
+  .audit-metadata-grid {
+    grid-template-columns: 1fr;
+  }
+
+  .audit-metadata-grid > div:nth-child(odd) {
+    border-right: 0;
   }
 }
 
@@ -4452,4 +4496,188 @@ textarea:focus-visible {
   .recycle-dialog-actions > * {
     flex: 1 1 auto;
   }
+}
+
+/* ============ Phase 6 — PDF Export ============ */
+
+.action-dialog {
+  width: min(31rem, calc(100% - 2rem));
+  max-height: calc(100vh - 2rem);
+  margin: auto;
+  overflow-y: auto;
+  border: 0;
+  border-radius: var(--radius-lg);
+  background: var(--surface-white);
+  box-shadow: 0 28px 90px rgb(24 24 27 / 36%);
+  padding: 0;
+}
+
+.action-dialog::backdrop {
+  background: rgb(24 24 27 / 58%);
+  backdrop-filter: blur(3px);
+}
+
+.action-dialog-content {
+  display: grid;
+}
+
+.action-dialog-header {
+  display: grid;
+  align-items: center;
+  grid-template-columns: 44px minmax(0, 1fr) 44px;
+  gap: 0.8rem;
+  border-bottom: 1px solid var(--border-soft);
+  padding: 1.1rem 1.25rem;
+}
+
+.action-dialog-header p,
+.action-dialog-header h2,
+.action-dialog-description {
+  margin: 0;
+}
+
+.action-dialog-header p {
+  color: var(--ink-500);
+  font-size: 0.65rem;
+  font-weight: 800;
+  text-transform: uppercase;
+}
+
+.action-dialog-header h2 {
+  margin-top: 0.2rem;
+  color: var(--ink-950);
+  font-family: Georgia, "Times New Roman", serif;
+  font-size: 1.3rem;
+  font-weight: 600;
+  line-height: 1.25;
+}
+
+.action-dialog-icon,
+.action-dialog-close {
+  display: grid;
+  width: 44px;
+  height: 44px;
+  place-items: center;
+  border-radius: var(--radius-sm);
+}
+
+.action-dialog-icon {
+  background: var(--surface-muted);
+  color: var(--ink-700);
+}
+
+.action-dialog-warning .action-dialog-icon {
+  background: var(--warning-soft);
+  color: var(--warning);
+}
+
+.action-dialog-danger .action-dialog-icon {
+  background: var(--danger-soft);
+  color: var(--danger);
+}
+
+.action-dialog-info .action-dialog-icon {
+  background: var(--surface-strong);
+  color: var(--ink-700);
+}
+
+.action-dialog-close {
+  border: 0;
+  background: transparent;
+  color: var(--ink-500);
+  cursor: pointer;
+}
+
+.action-dialog-close:hover:not(:disabled) {
+  background: var(--surface-muted);
+  color: var(--ink-950);
+}
+
+.action-dialog-body {
+  display: grid;
+  gap: 1rem;
+  padding: 1.25rem;
+}
+
+.action-dialog-description {
+  color: var(--ink-700);
+  font-size: 0.84rem;
+  line-height: 1.65;
+}
+
+.action-dialog-detail {
+  border: 1px solid var(--border-soft);
+  border-radius: var(--radius-sm);
+  background: var(--surface-soft);
+  color: var(--ink-700);
+  font-size: 0.78rem;
+  padding: 0.8rem 0.9rem;
+}
+
+.action-dialog-file-note {
+  display: flex;
+  align-items: center;
+  gap: 0.55rem;
+}
+
+.action-dialog-item-name {
+  display: block;
+  color: var(--ink-950);
+  overflow-wrap: anywhere;
+}
+
+.action-dialog-actions {
+  display: flex;
+  justify-content: flex-end;
+  gap: 0.65rem;
+  border-top: 1px solid var(--border-soft);
+  padding: 1rem 1.25rem 1.25rem;
+}
+
+@media (max-width: 520px) {
+  .action-dialog {
+    width: calc(100% - 1rem);
+    max-height: calc(100vh - 1rem);
+  }
+
+  .action-dialog-header {
+    grid-template-columns: 40px minmax(0, 1fr) 40px;
+    gap: 0.65rem;
+    padding: 1rem;
+  }
+
+  .action-dialog-icon,
+  .action-dialog-close {
+    width: 40px;
+    height: 40px;
+  }
+
+  .action-dialog-body {
+    padding: 1rem;
+  }
+
+  .action-dialog-actions {
+    align-items: stretch;
+    flex-direction: column-reverse;
+    padding: 0.9rem 1rem 1rem;
+  }
+
+  .action-dialog-actions > * {
+    width: 100%;
+  }
+}
+
+.pdf-download-wrap {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.5rem;
+}
+
+.pdf-download-error {
+  margin: 0;
+  border-radius: 0.5rem;
+  background: var(--danger-soft);
+  color: var(--danger);
+  font-size: 0.78rem;
+  padding: 0.5rem 0.7rem;
 }

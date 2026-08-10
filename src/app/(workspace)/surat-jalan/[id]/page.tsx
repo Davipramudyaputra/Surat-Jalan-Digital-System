@@ -4,6 +4,8 @@ import { notFound } from "next/navigation";
 import { getDeliveryNoteById } from "@/features/delivery-notes/queries";
 import { ContextualHistorySection } from "@/features/audit/components/ContextualHistorySection";
 import { AUDIT_ENTITY_TYPE } from "@/features/audit/constants";
+import { hasDeliveryNotePdfExport } from "@/features/audit/queries";
+import { DownloadPdfButton } from "@/features/pdf/components/DownloadPdfButton";
 import { formatBusinessDate } from "@/lib/delivery-note-template/formatter";
 import {
   ArrowLeft,
@@ -29,6 +31,8 @@ export default async function DeliveryNoteDetailPage({
     notFound();
   }
 
+  const hasBeenDownloaded = await hasDeliveryNotePdfExport(id);
+
   return (
     <div className="brand-page delivery-detail-page">
       <header className="brand-page-header" aria-labelledby="page-title">
@@ -50,6 +54,10 @@ export default async function DeliveryNoteDetailPage({
             <Edit3 aria-hidden="true" size={16} />
             Edit Data
           </Link>
+          <DownloadPdfButton
+            deliveryNoteId={id}
+            hasBeenDownloaded={hasBeenDownloaded}
+          />
           <Link
             className="brand-primary-button"
             href={`/surat-jalan/${id}/preview`}

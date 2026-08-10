@@ -2,6 +2,7 @@ import type { Metadata } from "next";
 import { notFound } from "next/navigation";
 
 import { DeliveryNotePreviewShell } from "@/components/delivery-note-template/DeliveryNotePreviewShell";
+import { hasDeliveryNotePdfExport } from "@/features/audit/queries";
 import { getDeliveryNoteForPreview } from "@/features/delivery-notes/queries";
 import { mapDeliveryNoteToDocument } from "@/lib/delivery-note-template/mapper";
 
@@ -21,6 +22,7 @@ export default async function DeliveryNotePreviewPage({
     notFound();
   }
 
+  const hasBeenDownloaded = await hasDeliveryNotePdfExport(id);
   const document = mapDeliveryNoteToDocument(deliveryNote);
 
   return (
@@ -32,6 +34,7 @@ export default async function DeliveryNotePreviewPage({
         printCount: deliveryNote.printCount,
       }}
       data={document}
+      hasBeenDownloaded={hasBeenDownloaded}
     />
   );
 }

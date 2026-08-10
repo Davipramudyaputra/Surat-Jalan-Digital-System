@@ -2,6 +2,9 @@
 
 import { useState, useTransition } from "react";
 import { useRouter } from "next/navigation";
+
+import { ActionDialog } from "@/components/ActionDialog";
+
 import { updateDeliveryNoteAction } from "../actions";
 import { DeliveryNoteEditInput } from "../schemas";
 import {
@@ -17,6 +20,17 @@ import {
 } from "lucide-react";
 
 type Item = DeliveryNoteEditInput["items"][number];
+type SaveDestination = "detail" | "preview";
+type FormDialogState =
+  | { kind: "minimum-item" }
+  | { kind: "remove-item"; index: number; itemName: string }
+  | {
+      kind: "zero-quantity";
+      count: number;
+      data: DeliveryNoteEditInput;
+      destination: SaveDestination;
+    }
+  | null;
 
 export function DeliveryNoteForm({
   initialData,
@@ -26,6 +40,7 @@ export function DeliveryNoteForm({
   const router = useRouter();
   const [isPending, startTransition] = useTransition();
   const [error, setError] = useState<string | null>(null);
+  const [dialog, setDialog] = useState<FormDialogState>(null);
 
   const [formData, setFormData] = useState<DeliveryNoteEditInput>(initialData);
 
@@ -60,18 +75,25 @@ export function DeliveryNoteForm({
 
   const handleRemoveItem = (index: number) => {
     if (formData.items.length <= 1) {
-      alert("Minimal satu barang harus tersedia.");
+      setDialog({ kind: "minimum-item" });
       return;
     }
-    if (!confirm(`Hapus barang "${formData.items[index].displayProductName}"?`)) return;
 
+    const itemName =
+      formData.items[index].displayProductName.trim() || `Barang ${index + 1}`;
+    setDialog({ kind: "remove-item", index, itemName });
+  };
+
+  const confirmRemoveItem = () => {
+    if (dialog?.kind !== "remove-item") return;
+    const index = dialog.index;
     setFormData((prev) => {
-      const newItems = [...prev.items];
-      newItems.splice(index, 1);
-      // Re-adjust sort order
-      newItems.forEach((item, i) => (item.sortOrder = i));
+      const newItems = prev.items
+        .filter((_, itemIndex) => itemIndex !== index)
+        .map((item, sortOrder) => ({ ...item, sortOrder }));
       return { ...prev, items: newItems };
     });
+    setDialog(null);
   };
 
   const moveItem = (index: number, direction: "up" | "down") => {
@@ -112,35 +134,36 @@ export function DeliveryNoteForm({
     setError(null);
     const submitter = (e.nativeEvent as SubmitEvent)
       .submitter as HTMLButtonElement | null;
-    const destination =
+    const destination: SaveDestination =
       submitter?.value === "preview" ? "preview" : "detail";
 
     // Validate 0 quantity before submitting
     const zeroQuantityItems = formData.items.filter(item => Number(item.quantity) === 0);
-    let itemsToSubmit = formData.items;
-
     if (zeroQuantityItems.length > 0) {
       if (formData.items.length === zeroQuantityItems.length) {
         setError("Tidak dapat menyimpan surat jalan tanpa barang. Minimal satu barang harus memiliki kuantitas lebih dari 0.");
         return;
       }
-      if (!confirm(`Terdapat ${zeroQuantityItems.length} barang dengan kuantitas 0. Barang-barang ini akan dihapus. Lanjutkan?`)) {
-        return;
-      }
-      itemsToSubmit = formData.items.filter(item => Number(item.quantity) !== 0);
-      itemsToSubmit.forEach((item, i) => (item.sortOrder = i));
-      setFormData(prev => ({ ...prev, items: itemsToSubmit }));
+
+      const itemsToSubmit = formData.items
+        .filter((item) => Number(item.quantity) !== 0)
+        .map((item, sortOrder) => ({ ...item, sortOrder }));
+      setDialog({
+        kind: "zero-quantity",
+        count: zeroQuantityItems.length,
+        data: { ...formData, items: itemsToSubmit },
+        destination,
+      });
+      return;
     }
 
-    const dataToSubmit = { ...formData, items: itemsToSubmit };
-
-    submitForm(dataToSubmit, destination);
+    submitForm(formData, destination);
   };
 
 
   const submitForm = (
     dataToSubmit: DeliveryNoteEditInput,
-    destination: "detail" | "preview",
+    destination: SaveDestination,
   ) => {
     startTransition(async () => {
       const result = await updateDeliveryNoteAction(dataToSubmit);
@@ -157,8 +180,17 @@ export function DeliveryNoteForm({
     });
   };
 
+  const confirmZeroQuantityRemoval = () => {
+    if (dialog?.kind !== "zero-quantity") return;
+    const { data, destination } = dialog;
+    setFormData(data);
+    setDialog(null);
+    submitForm(data, destination);
+  };
+
   return (
-    <form className="brand-card delivery-editor" onSubmit={handleSubmit}>
+    <>
+      <form className="brand-card delivery-editor" onSubmit={handleSubmit}>
       {error ? (
         <div className="form-message form-message-error" role="alert">{error}</div>
       ) : null}
@@ -319,6 +351,55 @@ export function DeliveryNoteForm({
           <Eye aria-hidden="true" size={16} /> {isPending ? "Menyimpan..." : "Simpan & Lihat Preview"}
         </button>
       </div>
-    </form>
+      </form>
+
+      <ActionDialog
+        cancelLabel={null}
+        confirmLabel="Mengerti"
+        description="Surat Jalan harus memiliki minimal satu barang. Tambahkan barang lain terlebih dahulu sebelum menghapus baris ini."
+        eyebrow="Barang wajib tersedia"
+        onClose={() => setDialog(null)}
+        onConfirm={() => setDialog(null)}
+        open={dialog?.kind === "minimum-item"}
+        title="Barang terakhir tidak dapat dihapus"
+        variant="info"
+      />
+
+      <ActionDialog
+        confirmLabel="Hapus Barang"
+        description="Barang ini akan dihapus dari daftar Surat Jalan. Perubahan baru tersimpan setelah Anda menekan tombol simpan."
+        eyebrow="Konfirmasi hapus"
+        onClose={() => setDialog(null)}
+        onConfirm={confirmRemoveItem}
+        open={dialog?.kind === "remove-item"}
+        title="Hapus barang dari daftar?"
+        variant="danger"
+      >
+        {dialog?.kind === "remove-item" ? (
+          <strong className="action-dialog-item-name">{dialog.itemName}</strong>
+        ) : null}
+      </ActionDialog>
+
+      <ActionDialog
+        confirmLabel={
+          dialog?.kind === "zero-quantity" && dialog.destination === "preview"
+            ? "Hapus & Lihat Preview"
+            : "Hapus & Simpan"
+        }
+        description={`${
+          dialog?.kind === "zero-quantity" ? dialog.count : 0
+        } barang memiliki kuantitas 0 dan tidak akan dicantumkan dalam Surat Jalan.`}
+        eyebrow="Validasi kuantitas"
+        isPending={isPending}
+        onClose={() => setDialog(null)}
+        onConfirm={confirmZeroQuantityRemoval}
+        open={dialog?.kind === "zero-quantity"}
+        pendingLabel="Menyimpan..."
+        title="Hapus barang dengan kuantitas 0?"
+        variant="warning"
+      >
+        <span>Barang lain dan urutannya tetap dipertahankan.</span>
+      </ActionDialog>
+    </>
   );
 }

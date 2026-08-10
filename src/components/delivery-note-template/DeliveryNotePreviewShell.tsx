@@ -17,6 +17,7 @@ import {
   type CSSProperties,
 } from "react";
 
+import { DownloadPdfButton } from "@/features/pdf/components/DownloadPdfButton";
 import { formatAuditDateTime } from "@/lib/delivery-note-template/formatter";
 import {
   DELIVERY_NOTE_PREVIEW_PAGE_GAP_MM,
@@ -49,9 +50,11 @@ type PrintAudit = {
 export function DeliveryNotePreviewShell({
   data,
   audit,
+  hasBeenDownloaded = false,
 }: {
   data: DeliveryNoteDocumentData;
   audit: PrintAudit;
+  hasBeenDownloaded?: boolean;
 }) {
   const isPrinted = audit.status === "PRINTED";
   // Pernah dicetak, namun status sudah kembali Belum Dicetak => data telah
@@ -362,6 +365,17 @@ export function DeliveryNotePreviewShell({
               <Edit3 aria-hidden="true" size={16} />
               Edit Data
             </Link>
+            {profileResolution.errors.length === 0 ? (
+              <DownloadPdfButton
+                deliveryNoteId={data.id}
+                hasBeenDownloaded={hasBeenDownloaded}
+                paper={paperSize}
+                orientation={orientation}
+                width={paperSize === "CUSTOM" ? Number(customWidthMm) : undefined}
+                height={paperSize === "CUSTOM" ? Number(customHeightMm) : undefined}
+                margin={paperSize === "CUSTOM" ? Number(customMarginMm) : undefined}
+              />
+            ) : null}
             <PrintDeliveryNoteButton
               deliveryNoteId={data.id}
               expectedUpdatedAt={data.updatedAt.toISOString()}

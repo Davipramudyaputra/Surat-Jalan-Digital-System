@@ -3,6 +3,7 @@ import "server-only";
 import { Prisma } from "@/generated/prisma/client";
 import { prisma } from "@/lib/prisma";
 
+import { AUDIT_ACTION, AUDIT_ENTITY_TYPE } from "../constants";
 import type { AuditHistorySearchParams } from "../schemas";
 
 function isValidDate(value: string): boolean {
@@ -167,4 +168,19 @@ export async function queryAuditHistoryForEntity(
     metadata: (event.metadata as Record<string, unknown>) ?? null,
     batchId: event.batchId,
   }));
+}
+
+export async function hasDeliveryNotePdfExport(
+  deliveryNoteId: string,
+): Promise<boolean> {
+  const event = await prisma.auditEvent.findFirst({
+    where: {
+      entityType: AUDIT_ENTITY_TYPE.DELIVERY_NOTE,
+      entityId: deliveryNoteId,
+      action: AUDIT_ACTION.PDF_EXPORT,
+    },
+    select: { id: true },
+  });
+
+  return event !== null;
 }

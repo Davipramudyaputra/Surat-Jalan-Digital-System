@@ -25,9 +25,6 @@ function formatValue(value: unknown): string {
   if (value instanceof Date) {
     return value.toLocaleString("id-ID");
   }
-  if (typeof value === "object") {
-    return JSON.stringify(value);
-  }
   return String(value);
 }
 
@@ -52,8 +49,60 @@ function fieldLabel(field: string): string {
     displayProductName: "Nama Barang",
     description: "Keterangan",
     sortOrder: "Urutan",
+    purchaseOrderId: "ID Purchase Order",
+    paperProfile: "Profil Kertas",
+    paperWidthMm: "Lebar Kertas (mm)",
+    paperHeightMm: "Tinggi Kertas (mm)",
+    orientation: "Orientasi",
+    pageCount: "Jumlah Halaman",
+    filename: "Nama File",
+    outputSizeBytes: "Ukuran File (byte)",
+    durationMs: "Durasi Proses (ms)",
+    deliveryNoteCount: "Jumlah Surat Jalan",
+    itemCount: "Jumlah Barang",
+    status: "Status",
   };
-  return labels[field] ?? field;
+  return (
+    labels[field] ??
+    field
+      .replace(/([a-z0-9])([A-Z])/gu, "$1 $2")
+      .replace(/[_-]+/gu, " ")
+      .replace(/^./u, (character) => character.toUpperCase())
+  );
+}
+
+function AuditValue({ value }: { value: unknown }) {
+  if (Array.isArray(value)) {
+    if (value.length === 0) return <span>—</span>;
+    return (
+      <ul className="audit-structured-list">
+        {value.map((entry, index) => (
+          <li key={index}>
+            <AuditValue value={entry} />
+          </li>
+        ))}
+      </ul>
+    );
+  }
+
+  if (value && typeof value === "object") {
+    const entries = Object.entries(value as Record<string, unknown>);
+    if (entries.length === 0) return <span>—</span>;
+    return (
+      <dl className="audit-structured-group">
+        {entries.map(([key, entry]) => (
+          <div key={key}>
+            <dt>{fieldLabel(key)}</dt>
+            <dd>
+              <AuditValue value={entry} />
+            </dd>
+          </div>
+        ))}
+      </dl>
+    );
+  }
+
+  return <span>{formatValue(value)}</span>;
 }
 
 export function AuditEventDetailDialog({ event, onClose }: Props) {
@@ -80,24 +129,21 @@ export function AuditEventDetailDialog({ event, onClose }: Props) {
     : [];
 
   const renderBeforeAfter = (field: string) => {
-    const before = formatValue(event.beforeData?.[field]);
-    const after = formatValue(event.afterData?.[field]);
-    const changed = before !== after;
     return (
       <div className="audit-detail-field" key={field}>
         <div className="audit-detail-field-name">{fieldLabel(field)}</div>
         <div className="audit-detail-field-values">
           <div>
             <span>Sebelum</span>
-            <strong className={changed ? "audit-before" : "audit-same"}>
-              {before}
-            </strong>
+            <div className="audit-value audit-before">
+              <AuditValue value={event.beforeData?.[field]} />
+            </div>
           </div>
           <div>
             <span>Sesudah</span>
-            <strong className={changed ? "audit-after" : "audit-same"}>
-              {after}
-            </strong>
+            <div className="audit-value audit-after">
+              <AuditValue value={event.afterData?.[field]} />
+            </div>
           </div>
         </div>
       </div>
@@ -159,9 +205,16 @@ export function AuditEventDetailDialog({ event, onClose }: Props) {
         {event.metadata ? (
           <section className="audit-detail-section">
             <h3>Metadata</h3>
-            <pre className="audit-detail-pre">
-              {JSON.stringify(event.metadata, null, 2)}
-            </pre>
+            <dl className="audit-metadata-grid">
+              {Object.entries(event.metadata).map(([key, value]) => (
+                <div key={key}>
+                  <dt>{fieldLabel(key)}</dt>
+                  <dd>
+                    <AuditValue value={value} />
+                  </dd>
+                </div>
+              ))}
+            </dl>
           </section>
         ) : null}
       </div>

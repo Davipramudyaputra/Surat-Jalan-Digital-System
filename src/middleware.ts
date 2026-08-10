@@ -34,8 +34,9 @@ export const config = {
      * - api (API routes)
      * - _next/static (static files)
      * - _next/image (image optimization files)
+     * - brand (public brand assets needed by internal PDF renderer)
      * - favicon.ico, sitemap.xml, robots.txt (metadata files)
      */
-    "/((?!api|_next/static|_next/image|favicon.ico|sitemap.xml|robots.txt).*)",
+    "/((?!api|render|brand|_next/static|_next/image|favicon.ico|sitemap.xml|robots.txt).*)",
   ],
 };
